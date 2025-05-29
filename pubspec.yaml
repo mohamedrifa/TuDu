@@ -20,6 +20,9 @@ flutter:
     - assets/logo.png
     - assets/dots.png
     - assets/pageMark.png
+    - assets/emptyTaskImg.png
+    - assets/emptytaskArrow.png
+    - assets/addTaskPlus.png
 
   fonts:
     - family: Poppins

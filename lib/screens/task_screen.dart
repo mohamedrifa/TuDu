@@ -4,10 +4,10 @@ import '../models/task.dart';
 
 class TaskScreen extends StatelessWidget {
   final List<Task> tasks = [
-    Task(title: "Prayer", time: "5.00 A.M To 5.40 A.M", tags: ["Spiritual"]),
-    Task(title: "Read Novel", time: "6.00 A.M To 7.00 A.M", tags: ["Upskill"]),
-    Task(title: "Prayer", time: "1.00 A.M To 1.30 A.M", tags: ["Spiritual", "Important"]),
-    Task(title: "Out With Friends", time: "7.00 P.M To 8.10 P.M", tags: ["Social"]),
+    // Task(title: "Prayer", time: "5.00 A.M To 5.40 A.M", tags: ["Spiritual"]),
+    // Task(title: "Read Novel", time: "6.00 A.M To 7.00 A.M", tags: ["Upskill"]),
+    // Task(title: "Prayer", time: "1.00 A.M To 1.30 A.M", tags: ["Spiritual", "Important"]),
+    // Task(title: "Out With Friends", time: "7.00 P.M To 8.10 P.M", tags: ["Social"]),
     // Add as many tasks as needed
   ];
 
@@ -28,18 +28,16 @@ class TaskScreen extends StatelessWidget {
             ),
             Column(
               children: [
-                // Header
-                Padding(
-              padding: const EdgeInsets.only(top: 66.0, left: 16.0, right: 16.0),
-              child: Row(
-                children: [
-                  Chip(label: Text("Today")),
-                  SizedBox(width: 10),
-                  Chip(label: Text("Tomorrow")),
-                ],
+              Padding(
+                padding: const EdgeInsets.only(top: 66.0, left: 16.0, right: 16.0),
+                  child: Row(
+                  children: [
+                    Chip(label: Text("Today")),
+                    SizedBox(width: 10),
+                    Chip(label: Text("Tomorrow")),
+                  ],
+                ),
               ),
-            ),
-
             // Date Text
             Padding(
               padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
@@ -57,6 +55,155 @@ class TaskScreen extends StatelessWidget {
               ),
             ),
             // Dynamic Task Cards
+            tasks.isEmpty ? 
+            Center(
+              child: Column(
+                    children: [
+                      Container(
+                        margin: EdgeInsets.only(top: 85.09),
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(color: Colors.black, fontSize: 18), // Default style
+                            children: [
+                              TextSpan(
+                                text: "‘’you Have No ",
+                                style: TextStyle(
+                                  color: Color(0xFFEBFAF9), 
+                                  fontFamily: 'Poppins',
+                                  fontSize: 24,    // Special style for "You Have No"
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              TextSpan(
+                                text: "Tasks",
+                                style: TextStyle(
+                                  color: Color(0xFFFED289), 
+                                  fontFamily: 'Poppins',
+                                  fontSize: 24,    // Special style for "tasks"
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              TextSpan(
+                                text: " Yet”",
+                                style: TextStyle(
+                                  color: Color(0xFFEBFAF9), 
+                                  fontFamily: 'Poppins',
+                                  fontSize: 24,    // Special style for "You Have No"
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Container(
+                        margin: EdgeInsets.only(top: 24.0),
+                        child: Image.asset(
+                          'assets/emptyTaskImg.png',
+                        ),
+                      ),
+                      Stack(
+                        children: [
+                          Column(
+                            children: [
+                               Container(
+                        margin: EdgeInsets.only(top: 24.0, bottom: 24.0),
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(color: Colors.black, fontSize: 18), // Default style
+                            children: [
+                              TextSpan(
+                                text: "‘’",
+                                style: TextStyle(
+                                  color: Color(0xFFEBFAF9), 
+                                  fontFamily: 'Poppins',
+                                  fontSize: 24,    // Special style for "You Have No"
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              TextSpan(
+                                text: "Add Your First Task",
+                                style: TextStyle(
+                                  color: Color(0xFFFED289), 
+                                  fontFamily: 'Poppins',
+                                  fontSize: 24,    // Special style for "tasks"
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              TextSpan(
+                                text: " ”",
+                                style: TextStyle(
+                                  color: Color(0xFFEBFAF9), 
+                                  fontFamily: 'Poppins',
+                                  fontSize: 24,    // Special style for "You Have No"
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Material(
+                        color: Colors.transparent, // Important to keep gradient visible
+                        borderRadius: BorderRadius.circular(8.0),
+                        child: InkWell(
+                          onTap: () {
+                            // Add new task logic
+                          },
+                          splashColor: Colors.white.withOpacity(0.2), // Optional: Customize ripple
+                          child: Container(
+                            width: 205.0,
+                            padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.75),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF134544), Color(0xFF268D8C)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(10.0),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Add New",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontFamily: 'Poppins',
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Image.asset(
+                                  'assets/addTaskPlus.png',
+                                  width: 52.5,
+                                  height: 52.5,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                            ],
+                          ),
+                          Positioned(
+                            top: 40,
+                            left: -40,
+                            child: Image.asset(
+                              'assets/emptytaskArrow.png',
+                              width: 100,
+                              height: 100,
+                            ),
+                          ),
+                        ],
+                      )
+                     
+
+                    ],
+                  ),
+                  
+              )
+            :
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(16.0),
@@ -72,8 +219,8 @@ class TaskScreen extends StatelessWidget {
                 },
               ),
             ),
-
             // Add New Button
+            tasks.isNotEmpty ?
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: ElevatedButton.icon(
@@ -88,10 +235,9 @@ class TaskScreen extends StatelessWidget {
                   minimumSize: Size(double.infinity, 50),
                 ),
               ),
-            )
+            ) : SizedBox.shrink(),
               ],
             )
-            
           ],
         ),
       ),
