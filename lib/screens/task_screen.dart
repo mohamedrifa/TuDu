@@ -22,73 +22,73 @@ class TaskScreen extends StatelessWidget {
               top: 47.48,
               right: 0,
               child: Image(
-                  width: 66.8,
-                  image: AssetImage('assets/pageMark.png'),
-                ),
+                width: 66.8,
+                image: AssetImage('assets/pageMark.png'),
+              ),
             ),
             Column(
               children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 66.0, left: 16.0, right: 16.0),
+                Padding(
+                  padding: const EdgeInsets.only(top: 66.0, left: 16.0, right: 16.0),
                   child: Row(
-                  children: [
-                    Chip(label: Text("Today")),
-                    SizedBox(width: 10),
-                    Chip(label: Text("Tomorrow")),
-                  ],
+                    children: [
+                      Chip(label: Text("Today")),
+                      SizedBox(width: 10),
+                      Chip(label: Text("Tomorrow")),
+                    ],
+                  ),
                 ),
-              ),
-            // Date Text
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "16 Tue Mar 2025",
-                  style: TextStyle(
-                    color: Color(0xFFEBFAF9), 
-                    fontFamily: 'Quantico',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 24
+                // Date Text
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "16 Tue Mar 2025",
+                      style: TextStyle(
+                        color: Color(0xFFEBFAF9),
+                        fontFamily: 'Quantico',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 24
+                      ),
                     ),
+                  ),
                 ),
-              ),
-            ),
-            // Dynamic Task Cards
-            tasks.isEmpty ? 
-            Center(
-              child: Column(
+                // Dynamic Task Cards
+                tasks.isEmpty ?
+                Center(
+                  child: Column(
                     children: [
                       Container(
                         margin: EdgeInsets.only(top: 85.09),
                         child: RichText(
                           text: TextSpan(
-                            style: TextStyle(color: Colors.black, fontSize: 18), // Default style
+                            style: TextStyle(color: Colors.black, fontSize: 18),
                             children: [
                               TextSpan(
                                 text: "‘’you Have No ",
                                 style: TextStyle(
-                                  color: Color(0xFFEBFAF9), 
+                                  color: Color(0xFFEBFAF9),
                                   fontFamily: 'Poppins',
-                                  fontSize: 24,    // Special style for "You Have No"
+                                  fontSize: 24,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               TextSpan(
                                 text: "Tasks",
                                 style: TextStyle(
-                                  color: Color(0xFFFED289), 
+                                  color: Color(0xFFFED289),
                                   fontFamily: 'Poppins',
-                                  fontSize: 24,    // Special style for "tasks"
+                                  fontSize: 24,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               TextSpan(
                                 text: " Yet”",
                                 style: TextStyle(
-                                  color: Color(0xFFEBFAF9), 
+                                  color: Color(0xFFEBFAF9),
                                   fontFamily: 'Poppins',
-                                  fontSize: 24,    // Special style for "You Have No"
+                                  fontSize: 24,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -106,136 +106,140 @@ class TaskScreen extends StatelessWidget {
                         children: [
                           Column(
                             children: [
-                               Container(
-                        margin: EdgeInsets.only(top: 24.0, bottom: 24.0),
-                        child: RichText(
-                          text: TextSpan(
-                            style: TextStyle(color: Colors.black, fontSize: 18), // Default style
-                            children: [
-                              TextSpan(
-                                text: "‘’",
-                                style: TextStyle(
-                                  color: Color(0xFFEBFAF9), 
-                                  fontFamily: 'Poppins',
-                                  fontSize: 24,    // Special style for "You Have No"
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextSpan(
-                                text: "Add Your First Task",
-                                style: TextStyle(
-                                  color: Color(0xFFFED289), 
-                                  fontFamily: 'Poppins',
-                                  fontSize: 24,    // Special style for "tasks"
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextSpan(
-                                text: " ”",
-                                style: TextStyle(
-                                  color: Color(0xFFEBFAF9), 
-                                  fontFamily: 'Poppins',
-                                  fontSize: 24,    // Special style for "You Have No"
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Material(
-                        color: Colors.transparent, // Important to keep gradient visible
-                        borderRadius: BorderRadius.circular(8.0),
-                        child: InkWell(
-                          onTap: () {
-                            // Add new task logic
-                          },
-                          splashColor: Colors.white.withOpacity(0.2), // Optional: Customize ripple
-                          child: Container(
-                            width: 205.0,
-                            padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.75),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF134544), Color(0xFF268D8C)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(10.0),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Add New",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontFamily: 'Poppins',
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w600,
+                              Container(
+                                width: 350,
+                                margin: EdgeInsets.only(top: 24.0, bottom: 24.0),
+                                child: Center(
+                                  child: RichText(
+                                    text: TextSpan(
+                                      style: TextStyle(color: Colors.black, fontSize: 18),
+                                      children: [
+                                        TextSpan(
+                                          text: "‘’",
+                                          style: TextStyle(
+                                            color: Color(0xFFEBFAF9),
+                                            fontFamily: 'Poppins',
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: "Add Your First Task",
+                                          style: TextStyle(
+                                            color: Color(0xFFFED289),
+                                            fontFamily: 'Poppins',
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: " ”",
+                                          style: TextStyle(
+                                            color: Color(0xFFEBFAF9),
+                                            fontFamily: 'Poppins',
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                Image.asset(
-                                  'assets/addTaskPlus.png',
-                                  width: 52.5,
-                                  height: 52.5,
+                              ),
+                              Material(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(8.0),
+                                child: InkWell(
+                                  onTap: () {
+                                    // Add new task logic
+                                  },
+                                  splashColor: Colors.white.withOpacity(0.2),
+                                  child: Container(
+                                    width: 205.0,
+                                    padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.75),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [Color(0xFF134544), Color(0xFF268D8C)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10.0),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          "Add New",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontFamily: 'Poppins',
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        Image.asset(
+                                          'assets/addTaskPlus.png',
+                                          width: 52.5,
+                                          height: 52.5,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                                ),
+                              ),
                             ],
                           ),
                           Positioned(
-                            top: 40,
-                            left: -40,
-                            child: Image.asset(
-                              'assets/emptytaskArrow.png',
-                              width: 100,
-                              height: 100,
+                            top: 55,
+                            left: 20,
+                            child: Transform.rotate(
+                              angle: 0.01,
+                              child: Image.asset(
+                                'assets/emptytaskArrow.png',
+                                width: 27.23,
+                                height: 65.77,
+                                fit: BoxFit.fill,
+                              ),
                             ),
                           ),
                         ],
                       )
-                     
-
                     ],
                   ),
-                  
-              )
-            :
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16.0),
-                itemCount: tasks.length,
-                itemBuilder: (context, index) {
-                  final task = tasks[index];
-                  return TaskCard(
-                    title: task.title,
-                    time: task.time,
-                    tags: task.tags,
-                    index: index,
-                  );
-                },
-              ),
-            ),
-            // Add New Button
-            tasks.isNotEmpty ?
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // Add new task logic
-                },
-                icon: Icon(Icons.add),
-                label: Text("Add New"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF1FD1A3),
-                  foregroundColor: Colors.black,
-                  minimumSize: Size(double.infinity, 50),
+                )
+                :
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: tasks.length,
+                    itemBuilder: (context, index) {
+                      final task = tasks[index];
+                      return TaskCard(
+                        title: task.title,
+                        time: task.time,
+                        tags: task.tags,
+                        index: index,
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ) : SizedBox.shrink(),
+                // Add New Button
+                tasks.isNotEmpty ?
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // Add new task logic
+                    },
+                    icon: Icon(Icons.add),
+                    label: Text("Add New"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF1FD1A3),
+                      foregroundColor: Colors.black,
+                      minimumSize: Size(double.infinity, 50),
+                    ),
+                  ),
+                ) : SizedBox.shrink(),
               ],
             )
           ],
