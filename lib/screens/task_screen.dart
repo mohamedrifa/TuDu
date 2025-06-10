@@ -56,7 +56,50 @@ class TaskScreen extends StatelessWidget {
                 ),
                 // Dynamic Task Cards
                 tasks.isEmpty ?
-                Center(
+                _emptyTaskWidget()
+                :
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: tasks.length,
+                    itemBuilder: (context, index) {
+                      final task = tasks[index];
+                      return TaskCard(
+                        title: task.title,
+                        time: task.time,
+                        tags: task.tags,
+                        index: index,
+                      );
+                    },
+                  ),
+                ),
+                // Add New Button
+                tasks.isNotEmpty ?
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // Add new task logic
+                    },
+                    icon: Icon(Icons.add),
+                    label: Text("Add New"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF1FD1A3),
+                      foregroundColor: Colors.black,
+                      minimumSize: Size(double.infinity, 50),
+                    ),
+                  ),
+                ) : SizedBox.shrink(),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyTaskWidget() {
+    return Center(
                   child: Column(
                     children: [
                       Container(
@@ -158,10 +201,10 @@ class TaskScreen extends StatelessWidget {
                                     width: 205.0,
                                     padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.75),
                                     decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [Color(0xFF134544), Color(0xFF268D8C)],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
+                                      color: Color.fromARGB(0, 31, 209, 162),
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2.0,
                                       ),
                                       borderRadius: BorderRadius.circular(10.0),
                                     ),
@@ -207,44 +250,6 @@ class TaskScreen extends StatelessWidget {
                     ],
                   ),
                 )
-                :
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16.0),
-                    itemCount: tasks.length,
-                    itemBuilder: (context, index) {
-                      final task = tasks[index];
-                      return TaskCard(
-                        title: task.title,
-                        time: task.time,
-                        tags: task.tags,
-                        index: index,
-                      );
-                    },
-                  ),
-                ),
-                // Add New Button
-                tasks.isNotEmpty ?
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      // Add new task logic
-                    },
-                    icon: Icon(Icons.add),
-                    label: Text("Add New"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF1FD1A3),
-                      foregroundColor: Colors.black,
-                      minimumSize: Size(double.infinity, 50),
-                    ),
-                  ),
-                ) : SizedBox.shrink(),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
+  ;
   }
 }

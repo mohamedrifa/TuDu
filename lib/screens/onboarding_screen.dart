@@ -30,36 +30,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void initState() {
     super.initState();
     // Trigger size animation after 3 seconds
-    // Future.delayed(const Duration(seconds: 3), () {
-    //   setState(() {
-    //     leftOffset = -403;
+    Future.delayed(const Duration(seconds: 3), () {
+      setState(() {
+        leftOffset = -403;
         
-    //     greenWidth = 337.6;
-    //     greenHeight = 41.82;
-    //     greenLeft = 56 - 187.36;
-    //     greenBottom = 36 - 151.14;
+        greenWidth = 337.6;
+        greenHeight = 41.82;
+        greenLeft = 56 - 187.36;
+        greenBottom = 36 - 151.14;
 
-    //     yellowWidth = 19.5;
-    //     yellowHeight = 593.67;
-    //     yellowRight = 27 - 324.99;
-    //     yellowBottom = 26 - 115.04;
+        yellowWidth = 19.5;
+        yellowHeight = 593.67;
+        yellowRight = 27 - 324.99;
+        yellowBottom = 26 - 115.04;
 
-    //     darkWidth = 1223.27;
-    //     darkHeight = 1360.32;
-    //     darkTop = 62 - 410.07;
-    //     darkRight = 15 - 482.61;
-    //   });
-    // });
+        darkWidth = 1223.27;
+        darkHeight = 1360.32;
+        darkTop = 62 - 410.07;
+        darkRight = 15 - 482.61;
+      });
+    });
     // Navigate to HomeScreen after animation
-    // Future.delayed(const Duration(seconds: 4), () {
-    //   Navigator.of(context).pushReplacement(PageRouteBuilder(
-    //     transitionDuration: const Duration(milliseconds: 1500),
-    //     pageBuilder: (_, __, ___) => TaskScreen(),
-    //     transitionsBuilder: (_, animation, __, child) {
-    //       return FadeTransition(opacity: animation, child: child);
-    //     },
-    //   ));
-    // });
+    Future.delayed(const Duration(seconds: 4), () {
+      Navigator.of(context).pushReplacement(PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 1500),
+        pageBuilder: (_, __, ___) => TaskScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ));
+    });
 
 
   }
