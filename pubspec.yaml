@@ -30,6 +30,7 @@ flutter:
     - assets/emptyTaskImg.png
     - assets/emptytaskArrow.png
     - assets/addTaskPlus.png
+    - assets/addTaskArrowBack.png
 
   fonts:
     - family: Poppins

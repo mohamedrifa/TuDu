@@ -3,9 +3,12 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../widgets/task_card.dart';
 import '../models/task.dart';
-import '../hive_service.dart';
+import '../database/hive_service.dart';
+import 'task_adding_screen.dart'; // Import the task adding screen
 
 class TaskScreen extends StatelessWidget {
+
+  
   void addPredefinedTasks() async {
     var box = Hive.box<Task>('tasks');
 
@@ -34,12 +37,34 @@ class TaskScreen extends StatelessWidget {
     }
   }
 
+  void _navigateToAddTaskScreen(BuildContext context) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 600), // 1.5 seconds
+        pageBuilder: (context, animation, secondaryAnimation) => TaskAddingScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final begin = const Offset(0.0, 1.0);
+          final end = Offset.zero;
+          final curve = Curves.easeInOut;
+          final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          final offsetAnimation = animation.drive(tween);
+        return SlideTransition(
+            position: offsetAnimation,
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final tasksBox = HiveService.getTasksBox();
     // addPredefinedTasks();
     return Scaffold(
-      backgroundColor: Color(0xFF313036),
+      backgroundColor: Color(0xFF1E1E1E),
       body: SafeArea(
         child: Stack(
           children: [
@@ -86,7 +111,7 @@ class TaskScreen extends StatelessWidget {
                   builder: (context, box, _) {
                     final tasks = box.values.toList();
                     return tasks.isEmpty
-                        ? _emptyTaskWidget()
+                        ? _emptyTaskWidget(context)
                         : Expanded(
                             child: ListView.builder(
                               padding: const EdgeInsets.all(16.0),
@@ -104,27 +129,64 @@ class TaskScreen extends StatelessWidget {
                           );
                   },
                 ),
-                // Add New Button
-                ValueListenableBuilder<Box<Task>>(
-                  valueListenable: tasksBox.listenable(),
-                  builder: (context, box, _) {
-                    return box.isEmpty
-                        ? SizedBox.shrink()
-                        : Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: ElevatedButton.icon(
-                              onPressed: () => _addNewTask(context, box),
-                              icon: Icon(Icons.add),
-                              label: Text("Add New"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(0xFF1FD1A3),
-                                foregroundColor: Colors.black,
-                                minimumSize: Size(double.infinity, 50),
-                              ),
+                Container(
+                  width: double.infinity,
+                  alignment: Alignment.centerRight,
+                  child: Material(
+                    color: Colors.transparent, // Transparent background
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Add New',
+                            style: TextStyle(
+                              color: Color(0xFFEBFAF9), // Light text
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Poppins',
                             ),
-                          );
-                  },
+                          ),
+                          const SizedBox(width: 24.75),
+                          InkWell(
+                            onTap: () { _navigateToAddTaskScreen(context); },
+                            borderRadius: BorderRadius.circular(8),
+                            splashColor: Colors.white24, // Tap effect
+                            child: Image(
+                              image: AssetImage('assets/addTaskPlus.png'),
+                              width: 52.5,
+                              height: 52.5,
+                              fit: BoxFit.fill,
+                            ),
+                          ),
+                       ],
+                      ),
+                    ),
+                  )
                 ),
+     
+                // Add New Button
+                // ValueListenableBuilder<Box<Task>>(
+                //   valueListenable: tasksBox.listenable(),
+                //   builder: (context, box, _) {
+                //     return box.isEmpty
+                //         ? SizedBox.shrink()
+                //         : Padding(
+                //             padding: const EdgeInsets.all(16.0),
+                //             child: ElevatedButton.icon(
+                //               onPressed: () => _addNewTask(context, box),
+                //               icon: Icon(Icons.add),
+                //               label: Text("Add New"),
+                //               style: ElevatedButton.styleFrom(
+                //                 backgroundColor: Color(0xFF1FD1A3),
+                //                 foregroundColor: Colors.black,
+                //                 minimumSize: Size(double.infinity, 50),
+                //               ),
+                //             ),
+                //           );
+                //   },
+                // ),
               ],
             )
           ],
@@ -133,27 +195,27 @@ class TaskScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _addNewTask(BuildContext context, Box<Task> box) async {
-    // Example of adding a new task - you should implement a proper form
-    final newTask = Task(
-      title: "New Task",
-      time: "12:00 PM To 1:00 PM",
-      tags: ["New"],
-    );
+  // Future<void> _addNewTask(BuildContext context, Box<Task> box) async {
+  //   // Example of adding a new task - you should implement a proper form
+  //   final newTask = Task(
+  //     title: "New Task",
+  //     time: "12:00 PM To 1:00 PM",
+  //     tags: ["New"],
+  //   );
 
-    await box.add(newTask);
+  //   await box.add(newTask);
 
-    // Show a snackbar or navigate to a form screen in a real app
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Task added successfully")),
-    );
-  }
+  //   // Show a snackbar or navigate to a form screen in a real app
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     SnackBar(content: Text("Task added successfully")),
+  //   );
+  // }
 
   Future<void> _deleteTask(Box<Task> box, int index) async {
     await box.deleteAt(index);
   }
 
-  Widget _emptyTaskWidget() {
+  Widget _emptyTaskWidget( BuildContext context) {
     return Center(
       child: Column(
         children: [
@@ -249,7 +311,7 @@ class TaskScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8.0),
                     child: InkWell(
                       onTap: () {
-                        addPredefinedTasks();
+                        _navigateToAddTaskScreen(context);
                       },
                       splashColor: Colors.white.withOpacity(0.2),
                       child: Container(

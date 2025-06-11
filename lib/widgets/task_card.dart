@@ -17,7 +17,7 @@ class TaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      color: index.isEven ? Color(0xFF60E6BE) : Color(0xFFB2F3DF),
+      color: Color(0xFF5AD3D1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
