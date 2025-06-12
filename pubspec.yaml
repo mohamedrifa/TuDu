@@ -32,6 +32,7 @@ flutter:
     - assets/addTaskPlus.png
     - assets/addTaskArrowBack.png
     - assets/calender_icon.png
+    - assets/updown.png
 
   fonts:
     - family: Poppins

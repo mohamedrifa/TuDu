@@ -16,6 +16,34 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   String selectedAfter = "On Time";
   final List<bool> _selectedDays = List.generate(7, (index) => false);
 
+
+  final fromHourController = TextEditingController();
+  final fromMinuteController = TextEditingController();
+  final fromHourFocus = FocusNode();
+  final fromMinuteFocus = FocusNode();
+
+  final toHourController = TextEditingController();
+  final toMinuteController = TextEditingController();
+  final toHourFocus = FocusNode();
+  final toMinuteFocus = FocusNode();
+
+  String fromperiod = "A.M";
+  String toperiod = "A.M";
+
+  @override
+  void dispose() {
+    fromHourController.dispose();
+    fromMinuteController.dispose();
+    fromHourFocus.dispose();
+    fromMinuteFocus.dispose();
+
+    toHourController.dispose();
+    toMinuteController.dispose();
+    toHourFocus.dispose();
+    toMinuteFocus.dispose();
+    super.dispose();
+  }
+
   void _navigateToHome() {
     setState(() {
       leftOffset = MediaQuery.of(context).size.width; // Adjust this value as needed for your animation
@@ -131,53 +159,54 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                             ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: "MTWTFSS".split("").asMap().entries.map((entry) {
-        int index = entry.key;
-        String day = entry.value;
-        bool isSelected = _selectedDays[index];
-
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              setState(() {
-                _selectedDays[index] = !_selectedDays[index];
-              });
-            },
-            borderRadius: BorderRadius.circular(5),
-            child: Container(
-              width: 35,
-              height: 50,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFF227D7B)
-                    : const Color.fromARGB(0, 43, 46, 60),
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Center(
-                child: Text(
-                  day,
-                  style: TextStyle(
-                    color: index == 6
-                        ? const Color(0xFFD11E1E) // Sunday in red
-                        : const Color(0xFFEBFAF9),
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    ),
-
-                          const SizedBox(height: 12),
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: "MTWTFSS".split("").asMap().entries.map((entry) {
+                              int index = entry.key;
+                              String day = entry.value;
+                              bool isSelected = _selectedDays[index];
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedDays[index] = !_selectedDays[index];
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(5),
+                                  child: Container(
+                                    width: 35,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? const Color(0xFF227D7B)
+                                          : const Color.fromARGB(0, 43, 46, 60),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        day,
+                                        style: TextStyle(
+                                          color: index == 6
+                                              ? const Color(0xFFD11E1E) // Sunday in red
+                                              : const Color(0xFFEBFAF9),
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w500,
+                                          fontFamily: 'Poppins',
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildLabel("Schedule"),
+                          const SizedBox(height: 16),
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               _buildTimePicker("From", "08", "00", "A.M"),
                               const SizedBox(width: 12),
@@ -318,30 +347,189 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     );
   }
 
+  // ignore: non_constant_identifier_names
+  void am_pmDialog(String label, String period) {
+    if(label == "From") {
+      if(fromperiod == "A.M") {
+        setState(() {
+          fromperiod = "P.M";
+        });
+      } else {
+        setState(() {
+          fromperiod = "A.M";
+        });
+      }
+    } else {
+      if(toperiod == "A.M") {
+        setState(() {
+          toperiod = "P.M";
+        });
+      } else {
+        setState(() {
+          toperiod = "A.M";
+        });
+      }
+    }
+  }
   Widget _buildTimePicker(String label, String hour, String minute, String period) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      children: [
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 40,
+              child: Center(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFFEBFAF9),
+                    fontSize: 16,
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 36),
+          ],
+        ),
+        SizedBox(width: 10),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+      height: 40,
+      width: 94,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9F8F8),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildLabel(label),
+          _buildDigitField(
+            controller:  label == "From" ? fromHourController : toHourController,
+            focusNode: label == "From" ? fromHourFocus : toHourFocus,
+            onChanged: (value) {
+              if (value.length == 2) {
+                if (label == "From") {
+                  fromMinuteFocus.requestFocus();
+                } else {
+                  toMinuteFocus.requestFocus();
+                }
+              } else if (value.isEmpty && label == "To") {
+                  fromMinuteFocus.requestFocus();
+              }
+            },
+          ),
           Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF2B2E3C),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text("$hour : $minute", style: const TextStyle(color: Colors.white)),
-                Text(period, style: const TextStyle(color: Colors.white54)),
-              ],
-            ),
-          )
+            height: 40,
+            width: 1,
+            color: Colors.black,
+          ),
+          _buildDigitField(
+            controller: label == "From" ? fromMinuteController : toMinuteController,
+            focusNode: label == "From" ? fromMinuteFocus : toMinuteFocus,
+            onChanged: (value) {
+              if (value.isEmpty) {
+                if (label == "From") {
+                  fromHourFocus.requestFocus();
+                } else {
+                  toHourFocus.requestFocus();
+                }
+              } else if (value.length == 2) {
+                if (label == "From") {
+                  toHourFocus.requestFocus();
+                } else {
+                  toMinuteFocus.unfocus();
+                }
+              }
+            },
+          ),
         ],
+      ),
+    ),
+            SizedBox(height: 5,),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  am_pmDialog(label, period);
+                },
+                borderRadius: BorderRadius.all(Radius.circular(5)),
+                child: Container(
+                height: 31,
+                width: 94,
+                decoration: BoxDecoration(
+                  color:  label == "From" ? (fromperiod == "A.M" ? Color(0xFF268D8C) : const Color(0xFFFED289)) : (toperiod == "A.M" ? Color(0xFF268D8C) : const Color(0xFFFED289)),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image(image: AssetImage("assets/updown.png"), width: 21, height: 21),
+                      const SizedBox(width: 8.41),
+                      Text(
+                        label == "From" ? fromperiod : toperiod,
+                        style: const TextStyle(
+                          color: Color(0xFF0D0C10),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          fontFamily: 'Quantico',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              ),
+            ),
+            
+          ],
+        ),
+        
+      ],
+    );
+  }
+
+  Widget _buildDigitField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required void Function(String) onChanged,
+  }) {
+    return SizedBox(
+      width: 46,
+      height: 33,
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        onChanged: onChanged,
+        keyboardType: TextInputType.number,
+        maxLength: 2,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          fontFamily: 'Quantico', 
+        ),
+        textAlign: TextAlign.center,
+        decoration: const InputDecoration(
+          hintText: '00',
+          counterText: '',
+          hintStyle: TextStyle(
+            color: Color(0xFF82808E),
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            fontFamily: 'Quantico',
+          ),
+          border: InputBorder.none,
+        ),
       ),
     );
   }
+
 
   Widget _buildTag(String text, Color color) {
     return Container(
