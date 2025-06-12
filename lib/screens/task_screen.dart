@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../widgets/task_card.dart';
 import '../models/task.dart';
@@ -7,6 +6,8 @@ import '../database/hive_service.dart';
 import 'task_adding_screen.dart'; // Import the task adding screen
 
 class TaskScreen extends StatelessWidget {
+  const TaskScreen({super.key});
+
 
   
   void addPredefinedTasks() async {
@@ -211,9 +212,6 @@ class TaskScreen extends StatelessWidget {
   //   );
   // }
 
-  Future<void> _deleteTask(Box<Task> box, int index) async {
-    await box.deleteAt(index);
-  }
 
   Widget _emptyTaskWidget( BuildContext context) {
     return Center(

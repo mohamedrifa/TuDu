@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'screens/onboarding_screen.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'database/hive_service.dart';
 
 void main() async {
