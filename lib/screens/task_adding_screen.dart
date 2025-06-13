@@ -1,5 +1,9 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'task_screen.dart';
+import 'package:intl/intl.dart';
+
 
 class TaskAddingScreen extends StatefulWidget {
   const TaskAddingScreen({super.key});
@@ -12,9 +16,13 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   bool isImportant = false;
   double leftOffset = 0;
 
+  
   String selectedBefore = "5 Mins";
   String selectedAfter = "On Time";
   final List<bool> _selectedDays = List.generate(7, (index) => false);
+
+  DateTime now = DateTime.now();
+  String formattedDate = DateFormat('EEEE, d MMMM').format(DateTime.now());
 
 
   final fromHourController = TextEditingController();
@@ -34,6 +42,19 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   final _tagFocusNode = FocusNode();
   final tagController = TextEditingController();
 
+  bool isBeforeLoudAlert = false;
+  bool isBeforeMediumAlert = false;
+
+  bool isAfterLoudAlert = false;
+  bool isAfterMediumAlert = false;
+
+
+  String taskName = "";
+  String date = DateFormat('d MM yyyy').format(DateTime.now());
+
+
+  String showDate = "Today-${DateFormat('EEE, d MMMM').format(DateTime.now())}";
+
   @override
   void dispose() {
     fromHourController.dispose();
@@ -48,6 +69,11 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
 
      _tagFocusNode.dispose();
     super.dispose();
+  }
+
+
+  void submitTask() {
+
   }
 
   void _navigateToHome() {
@@ -74,6 +100,113 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   );
 }
 
+  DateTime? selectedDate;
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: Color(0xFFFED289), // header background color
+              onPrimary: Colors.black, // header text color
+              onSurface: Colors.white, // body text color
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Color(0xFFFED289), // button text color
+                backgroundColor: Color(0xFF2B2E3C)
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+        date = DateFormat('d MM yyyy').format(selectedDate!);
+
+        final today = DateTime.now();
+        final todayDateOnly = DateTime(today.year, today.month, today.day);
+        final selectedDateOnly = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day);
+
+        if (selectedDateOnly.isAtSameMomentAs(todayDateOnly)) {
+          showDate = "Today-${DateFormat('EEE, d MMMM').format(selectedDate!)}";
+        } else if (selectedDateOnly.isAtSameMomentAs(todayDateOnly.add(Duration(days: 1)))) {
+          showDate = "Tomorrow-${DateFormat('EEE, d MMMM').format(selectedDate!)}";
+        } else {
+          showDate = DateFormat('EEE, d MMMM').format(selectedDate!);
+        }
+      });
+    }
+
+  }
+
+  List indexList = [];
+  void daySelection(int index) {
+    setState(() {
+      _selectedDays[index] = !_selectedDays[index];
+      if (_selectedDays[index]) {
+        indexList.add(index);
+        indexList.sort();
+      } else {
+        indexList.remove(index);
+      }
+      indexList.sort();
+    });
+  }
+  getDayName(int index) {
+    switch (index) {
+      case 0:
+        return "Monday";
+      case 1:
+        return "Tuesday";
+      case 2:
+        return "Wednesday";
+      case 3:
+        return "Thursday";
+      case 4:
+        return "Friday";
+      case 5:
+        return "Saturday";
+      case 6:
+        return "Sunday";
+      default:
+        return "";
+    }
+  }
+  void updateShowDate() {
+    for (int i = 0; i < indexList.length; i++) {
+      if (i == 0) {
+        setState(() {
+          showDate = "Every ${getDayName(indexList[i])}";
+          date = "repeat";
+        });
+      } else if (i == 6) {
+        setState(() {
+          showDate = "Every Day";
+          date = "repeat";
+        });
+      } else {
+        setState(() {
+          showDate += ", ${getDayName(indexList[i])}";
+          date = "repeat";
+        });
+      }
+    }
+    if (indexList.isEmpty) {
+      setState(() {
+        showDate = "Today-${DateFormat('EEE, d MMMM').format(DateTime.now())}";
+        date = DateFormat('d MM yyyy').format(DateTime.now());
+      });
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,7 +253,8 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Text("Add Task",
+                           Text(
+                            "Add Task",
                               style: TextStyle(
                                 color: Color(0xFFF4F4F5),
                                 fontFamily: 'Poppins',
@@ -138,31 +272,36 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           const SizedBox(height: 8.3),
                           _buildLabel("Task Name"),
                           const SizedBox(height: 16),
-                          _buildTextField(" Eg: Read Novel"),
+                          _buildTextField(" Eg: Read Novel", "taskName"),
                           const SizedBox(height: 24),
                           Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () => {    }, // Optional: for ripple to match shape
+                              onTap: () => { _selectDate(context)   }, // Optional: for ripple to match shape
                               child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: const [
-                                Text(
-                                  "Tommorow–Sun, 25 May", 
-                                  style: TextStyle(
-                                    color: Color(0xFFEBFAF9),
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w500,
-                                    fontFamily: 'Poppins',
-                                  )
-                                ),
-                                Image(
-                                  image: AssetImage("assets/calender_icon.png"), 
-                                  width: 35, 
-                                  height: 35
-                                ),
-                              ],
-                            ),
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      showDate,
+                                      overflow: TextOverflow.ellipsis, // adds "..." at the end if it's too long
+                                      maxLines: 1,
+                                      style: const TextStyle(
+                                        color: Color(0xFFEBFAF9),
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w500,
+                                        fontFamily: 'Poppins',
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8), // optional spacing
+                                  const Image(
+                                    image: AssetImage("assets/calender_icon.png"),
+                                    width: 35,
+                                    height: 35,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -176,9 +315,8 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap: () {
-                                    setState(() {
-                                      _selectedDays[index] = !_selectedDays[index];
-                                    });
+                                    setState(() { daySelection(index); });
+                                    updateShowDate();
                                   },
                                   borderRadius: BorderRadius.circular(5),
                                   child: Container(
@@ -214,9 +352,9 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              _buildTimePicker("From", "08", "00", "A.M"),
+                              _buildTimePicker("From"),
                               const SizedBox(width: 12),
-                              _buildTimePicker("To", "06", "00", "P.M"),
+                              _buildTimePicker("To"),
                             ],
                           ),
                           const SizedBox(height: 24),
@@ -263,47 +401,69 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                             ],
                           ),
 
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 24),
                           _buildLabel("Location"),
-                          _buildTextField("At Cafe"),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
+                          _buildTextField("At Cafe", "location"),
+                          const SizedBox(height: 24),
                           _buildLabel("Sub Tasks"),
-                          _buildTextField("Binding Work"),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
+                          _buildTextField("Binding Work", "subTask"),
+                          const SizedBox(height: 24),
                           _buildLabel("Notifications"),
-                          Row(
+                          const SizedBox(height: 16),
+                          Column(
                             children: [
-                              Expanded(
-                                child: _buildDropdown(
-                                  "Before",
-                                  ["5 Mins", "10 Mins", "15 Mins"],
-                                  selectedBefore,
-                                  (val) => setState(() => selectedBefore = val!),
-                                ),
+                              _buildDropdown(
+                                "Before",
+                                ["5 Mins", "10 Mins", "15 Mins"],
+                                selectedBefore,
+                                (val) => setState(() => selectedBefore = val!),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildDropdown(
-                                  "After",
-                                  ["On Time", "5 Mins Late"],
-                                  selectedAfter,
-                                  (val) => setState(() => selectedAfter = val!),
-                                ),
+                              const SizedBox(height: 16),
+                              _buildDropdown(
+                                "After",
+                                ["On Time", "5 Mins", "10 Mins"],
+                                selectedAfter,
+                                (val) => setState(() => selectedAfter = val!),
                               ),
+                              
                             ],
                           ),
                           const SizedBox(height: 20),
                           Align(
                             alignment: Alignment.centerRight,
-                            child: ElevatedButton.icon(
-                              onPressed: () {},
-                              icon: const Icon(Icons.add, size: 16),
-                              label: const Text("ADD"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () { submitTask();},
+                                borderRadius: BorderRadius.circular(25),
+                                child: Container(
+                                  height: 56,
+                                  width: 119,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0D0C10),
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: const [
+                                        Text(
+                                          "ADD",
+                                          style: TextStyle(
+                                            color: Color(0xFFEBFAF9),
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w600,
+                                            fontFamily: 'Poppins',
+                                          ),
+                                        ),
+                                        SizedBox(width: 5),
+                                        Image(image: AssetImage("assets/addTaskIcon.png"), width: 30, height: 30)
+                                      ],
+                                    )
+                                  ),
+                                ),
                               ),
                             ),
                           )
@@ -331,7 +491,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     );
   }
 
-  Widget _buildTextField(String hint) {
+  Widget _buildTextField(String hint, String fieldType) {
     return Container(
       height: 40,
       decoration: BoxDecoration(
@@ -339,8 +499,21 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         borderRadius: BorderRadius.circular(5),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.centerLeft,
-      child: TextField(
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: TextField(
+        onChanged: (value) {
+          setState(() {
+            if (fieldType == "taskName") {
+              taskName = value;
+            } else if (fieldType == "location") {
+              // Handle location change
+            } else if (fieldType == "subTask") {
+              // Handle sub-task change
+            }
+          });
+        },
+        cursorColor: Colors.black,
         style: const TextStyle(
           color: Color(0xFF1B1A1E),
           fontSize: 20,
@@ -358,11 +531,12 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
           border: InputBorder.none,
         ),
       ),
+      ),
     );
   }
 
   // ignore: non_constant_identifier_names
-  void am_pmDialog(String label, String period) {
+  void am_pmDialog(String label) {
     if(label == "From") {
       if(fromperiod == "A.M") {
         setState(() {
@@ -386,7 +560,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     }
   }
  
-  Widget _buildTimePicker(String label, String hour, String minute, String period) {
+  Widget _buildTimePicker(String label) {
     return Row(
       children: [
         Column(
@@ -415,63 +589,63 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-      height: 40,
-      width: 94,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE9F8F8),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildDigitField(
-            controller:  label == "From" ? fromHourController : toHourController,
-            focusNode: label == "From" ? fromHourFocus : toHourFocus,
-            onChanged: (value) {
-              if (value.length == 2) {
-                if (label == "From") {
-                  fromMinuteFocus.requestFocus();
-                } else {
-                  toMinuteFocus.requestFocus();
-                }
-              } else if (value.isEmpty && label == "To") {
-                  fromMinuteFocus.requestFocus();
-              }
-            },
-          ),
-          Container(
+              height: 40,
+              width: 94,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE9F8F8),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildDigitField(
+                    controller:  label == "From" ? fromHourController : toHourController,
+                    focusNode: label == "From" ? fromHourFocus : toHourFocus,
+                    onChanged: (value) {
+                      if (value.length == 2) {
+                        if (label == "From") {
+                          fromMinuteFocus.requestFocus();
+                        } else {
+                          toMinuteFocus.requestFocus();
+                        }
+                      } else if (value.isEmpty && label == "To") {
+                          fromMinuteFocus.requestFocus();
+                      }
+                    },
+                  ),
+                  Container(
             height: 40,
             width: 1,
             color: Colors.black,
           ),
-          _buildDigitField(
-            controller: label == "From" ? fromMinuteController : toMinuteController,
-            focusNode: label == "From" ? fromMinuteFocus : toMinuteFocus,
-            onChanged: (value) {
-              if (value.isEmpty) {
-                if (label == "From") {
-                  fromHourFocus.requestFocus();
-                } else {
-                  toHourFocus.requestFocus();
-                }
-              } else if (value.length == 2) {
-                if (label == "From") {
-                  toHourFocus.requestFocus();
-                } else {
-                  toMinuteFocus.unfocus();
-                }
-              }
-            },
-          ),
-        ],
-      ),
-    ),
+                  _buildDigitField(
+                    controller: label == "From" ? fromMinuteController : toMinuteController,
+                    focusNode: label == "From" ? fromMinuteFocus : toMinuteFocus,
+                    onChanged: (value) {
+                      if (value.isEmpty) {
+                        if (label == "From") {
+                          fromHourFocus.requestFocus();
+                        } else {
+                          toHourFocus.requestFocus();
+                        }
+                      } else if (value.length == 2) {
+                        if (label == "From") {
+                          toHourFocus.requestFocus();
+                        } else {
+                          toMinuteFocus.unfocus();
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
             SizedBox(height: 5,),
             Material(
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
-                  am_pmDialog(label, period);
+                  am_pmDialog(label);
                 },
                 borderRadius: BorderRadius.all(Radius.circular(5)),
                 child: Container(
@@ -522,6 +696,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         controller: controller,
         focusNode: focusNode,
         onChanged: onChanged,
+        cursorColor: Colors.black,
         keyboardType: TextInputType.number,
         maxLength: 2,
         style: const TextStyle(
@@ -626,29 +801,118 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel(label),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2B2E3C),
-            borderRadius: BorderRadius.circular(8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            color: Color(0xFFEBFAF9),
+            fontWeight: FontWeight.w400,
+            fontFamily: 'Poppins',
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              dropdownColor: const Color(0xFF2B2E3C),
-              style: const TextStyle(color: Colors.white),
-              items: items
-                  .map((item) => DropdownMenuItem(
-                        value: item,
-                        child: Text(item),
-                      ))
-                  .toList(),
-              onChanged: onChanged,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  if (label == "Before") {
+                    setState(() {
+                      isBeforeLoudAlert = !isBeforeLoudAlert;
+                      isBeforeMediumAlert = false;
+                    });
+                  } else {
+                    setState(() {
+                      isAfterLoudAlert = !isAfterLoudAlert;
+                      isAfterMediumAlert = false;
+                    });
+                  }
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Image(
+                  image: label == "Before"
+                      ? isBeforeLoudAlert
+                          ? const AssetImage("assets/loudAlertOn.png")
+                          : const AssetImage("assets/loudAlertOff.png")
+                      : isAfterLoudAlert
+                          ? const AssetImage("assets/loudAlertOn.png")
+                          : const AssetImage("assets/loudAlertOff.png"),
+                  width: 35,
+                  height: 35,
+                ),
+              ),
             ),
-          ),
-        )
+            SizedBox(width: 16),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  if (label == "Before") {
+                    setState(() {
+                      isBeforeMediumAlert = !isBeforeMediumAlert;
+                      isBeforeLoudAlert = false;
+                    });
+                  } else {
+                    setState(() {
+                      isAfterMediumAlert = !isAfterMediumAlert;
+                      isAfterLoudAlert = false;
+                    });
+                  }
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Image(
+                  image: label == "Before"
+                      ? isBeforeMediumAlert
+                          ? const AssetImage("assets/mediumAlertOn.png")
+                          : const AssetImage("assets/mediumAlertOff.png")
+                      : isAfterMediumAlert
+                          ? const AssetImage("assets/mediumAlertOn.png")
+                          : const AssetImage("assets/mediumAlertOff.png"),
+                  width: 35,
+                  height: 35,
+                ),
+              ),
+            ),
+            SizedBox(width: 16),
+            IntrinsicWidth(
+              child: Container(
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEBFAF9),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: value,
+                    isExpanded: true,
+                    dropdownColor: const Color(0xFF2B2E3C),
+                    style: const TextStyle(
+                      color: Color(0xFF82808E),
+                      fontFamily: 'Poppins',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    icon: Image.asset(
+                      'assets/dropDownArrow.png', 
+                      width: 24,
+                      height: 24,
+                    ),
+                    items: items
+                        .map((item) => DropdownMenuItem(
+                              value: item,
+                              child: Text(item),
+                            ))
+                        .toList(),
+                    onChanged: onChanged,
+                  ),
+                ),
+              )
+            ),
+          ],
+        ),
+        
       ],
     );
   }

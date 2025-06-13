@@ -13,6 +13,7 @@ dependencies:
   hive_flutter: ^1.1.0
   json_serializable: ^6.7.1
   path_provider: ^2.1.1
+  intl: ^0.18.1
 
 dev_dependencies:
   flutter_test:
@@ -33,6 +34,13 @@ flutter:
     - assets/addTaskArrowBack.png
     - assets/calender_icon.png
     - assets/updown.png
+    - assets/loudAlertOn.png
+    - assets/loudAlertOff.png
+    - assets/mediumAlertOn.png
+    - assets/mediumAlertOff.png
+    - assets/dropDownArrow.png
+    - assets/addTaskIcon.png
+    - assets/editIcon.png
 
   fonts:
     - family: Poppins
