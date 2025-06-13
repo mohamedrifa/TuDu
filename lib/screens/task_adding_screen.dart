@@ -241,25 +241,28 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                             ),
                           ),
                           
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 24),
                           Row(
                             children: [
-                              Checkbox(
-                                value: isImportant,
-                                onChanged: (val) {
-                                  setState(() {
-                                    isImportant = val!;
-                                  });
-                                },
-                                activeColor: const Color(0xFF6BD1E8),
+                              SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: Checkbox(
+                                  value: isImportant,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      isImportant = val!;
+                                    });
+                                  },
+                                  activeColor: const Color(0xFF268D8C),
+                                  checkColor: Colors.black,
+                                ),
                               ),
-                              const Text("Mark As Important",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white70,
-                                  ))
+                              const SizedBox(width: 19), 
+                              _buildLabel("Mark As Important"),
                             ],
                           ),
+
                           const SizedBox(height: 12),
                           _buildLabel("Location"),
                           _buildTextField("At Cafe"),
@@ -576,52 +579,48 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   }
 
   Widget _buildTagAdder() {
-    bool showBackground = _tagFocusNode.hasFocus && selectedTag.isNotEmpty;
+  final bool showBackground = _tagFocusNode.hasFocus && selectedTag.isNotEmpty;
 
-    return Container(
-      padding: const EdgeInsets.only(left: 8, top: 2),
-      height: 27,
-      width: 77,
-      decoration: BoxDecoration(
-        color: showBackground ? const Color(0xFFFED189) : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFFED289), width: 1),
-      ),
+  return Container(
+    height: 27,
+    padding: const EdgeInsets.only(left: 8, right: 8, top: 1.5, bottom: 1.5),
+    decoration: BoxDecoration(
+      color: showBackground ? const Color(0xFFFED189) : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xFFFED289), width: 1),
+    ),
+    child: IntrinsicWidth(
       child: TextField(
         focusNode: _tagFocusNode,
         controller: tagController,
-        onChanged: (value) {
-          setState(() {
-            selectedTag = value;
-          });
-        },
-        maxLines: 1,
-        onTap: () {
-          setState(() {
-            selectedTag = "";
-          });
-        },
         cursorHeight: 15,
-        cursorColor: Colors.black,
+        cursorColor: showBackground ? const Color(0xFF1B1A1E) : const Color(0xFFFED289),
+        maxLines: 1,
         style: const TextStyle(
-          color: Color(0xFF1B1A1E),
+          fontFamily: 'Poppins',
           fontSize: 18,
           fontWeight: FontWeight.w300,
-          fontFamily: 'Poppins',
+          color: Color(0xFF1B1A1E),
         ),
         decoration: const InputDecoration(
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(vertical: 4),
           hintText: "+Add...",
           hintStyle: TextStyle(
-            color: Color(0xFFFEE5BD),
+            fontFamily: 'Poppins',
             fontSize: 18,
             fontWeight: FontWeight.w300,
-            fontFamily: 'Poppins',
+            color: Color(0xFFFEE5BD),
           ),
           border: InputBorder.none,
         ),
+        onChanged: (value) => setState(() => selectedTag = value),
+        onTap: () => setState(() => selectedTag = ""),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildDropdown(String label, List<String> items, String value, void Function(String?) onChanged) {
     return Column(
