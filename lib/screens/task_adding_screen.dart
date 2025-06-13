@@ -30,6 +30,10 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   String fromperiod = "A.M";
   String toperiod = "A.M";
 
+  String selectedTag = "";
+  final _tagFocusNode = FocusNode();
+  final tagController = TextEditingController();
+
   @override
   void dispose() {
     fromHourController.dispose();
@@ -41,6 +45,8 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     toMinuteController.dispose();
     toHourFocus.dispose();
     toMinuteFocus.dispose();
+
+     _tagFocusNode.dispose();
     super.dispose();
   }
 
@@ -213,23 +219,28 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                               _buildTimePicker("To", "06", "00", "P.M"),
                             ],
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 24),
                           _buildLabel("Tags"),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: [
-                              _buildTag("Upskill", const Color(0xFFEDD57E)),
-                              _buildTag("Work", const Color(0xFF68C6D9)),
-                              _buildTag("Personal", const Color(0xFFDD7EB1)),
-                              _buildTag("Health", const Color(0xFF7EDD86)),
-                              _buildTag("Exercise", const Color(0xFF7EBCED)),
-                              _buildTag("Social", const Color(0xFFF28C8C)),
-                              _buildTag("Spiritual", const Color(0xFFD78CF2)),
-                              _buildTag("Finance", const Color(0xFFB5ED7E)),
-                              _buildTag("+Add", Colors.white24),
-                            ],
+                          const SizedBox(height: 24),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 11.5),
+                            child: Wrap(
+                              spacing: 11,
+                              runSpacing: 11,
+                              children: [
+                                _buildTag("Upskill"),
+                                _buildTag("Work"),
+                                _buildTag("Personal"),
+                                _buildTag("Health"),
+                                _buildTag("Exercise"),
+                                _buildTag("Social"),
+                                _buildTag("Spiritual"),
+                                _buildTag("Finance"),
+                                _buildTagAdder(),
+                              ],
+                            ),
                           ),
+                          
                           const SizedBox(height: 12),
                           Row(
                             children: [
@@ -371,6 +382,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       }
     }
   }
+ 
   Widget _buildTimePicker(String label, String hour, String minute, String period) {
     return Row(
       children: [
@@ -530,19 +542,82 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     );
   }
 
-
-  Widget _buildTag(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
+  Widget _buildTag(String text) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            selectedTag = text;
+            _tagFocusNode.unfocus(); 
+            tagController.clear();
+          });
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: selectedTag == text ? const Color(0xFFFED289) : const Color.fromARGB(0, 43, 46, 60),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Color(0xFFFED289), width: 1),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: selectedTag == text ? Color(0xFF1B1A1E) : Color(0xFFEBFAF9),
+              fontSize: 18,
+              fontWeight: FontWeight.w300,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ),
       ),
-      child: Text(
-        text,
+    );
+  }
+
+  Widget _buildTagAdder() {
+    bool showBackground = _tagFocusNode.hasFocus && selectedTag.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.only(left: 8, top: 2),
+      height: 27,
+      width: 77,
+      decoration: BoxDecoration(
+        color: showBackground ? const Color(0xFFFED189) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFED289), width: 1),
+      ),
+      child: TextField(
+        focusNode: _tagFocusNode,
+        controller: tagController,
+        onChanged: (value) {
+          setState(() {
+            selectedTag = value;
+          });
+        },
+        maxLines: 1,
+        onTap: () {
+          setState(() {
+            selectedTag = "";
+          });
+        },
+        cursorHeight: 15,
+        cursorColor: Colors.black,
         style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          color: Color(0xFF1B1A1E),
+          fontSize: 18,
+          fontWeight: FontWeight.w300,
+          fontFamily: 'Poppins',
+        ),
+        decoration: const InputDecoration(
+          hintText: "+Add...",
+          hintStyle: TextStyle(
+            color: Color(0xFFFEE5BD),
+            fontSize: 18,
+            fontWeight: FontWeight.w300,
+            fontFamily: 'Poppins',
+          ),
+          border: InputBorder.none,
         ),
       ),
     );
