@@ -34,11 +34,12 @@ class TaskScreen extends StatelessWidget {
     );
   }
 
+  String selectedDate = "Today";
+
 
   @override
   Widget build(BuildContext context) {
     final tasksBox = HiveService.getTasksBox();
-    bool taskIsEmpty = true;
     return Scaffold(
       backgroundColor: Color(0xFF1E1E1E),
       body: SafeArea(
@@ -59,9 +60,42 @@ class TaskScreen extends StatelessWidget {
                       const EdgeInsets.only(top: 66.0, left: 16.0, right: 16.0),
                   child: Row(
                     children: [
-                      Chip(label: Text("Today")),
-                      SizedBox(width: 10),
-                      Chip(label: Text("Tomorrow")),
+                      // buttons needs to included
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.all(Radius.circular(20)),
+                          color: selectedDate == "Today" ? Color(0xFFFED289) : Colors.transparent,
+                          border: Border.all(color: Color(0xFFFED289), width: 1),
+                        ),
+                        child: Text(
+                          "Today",
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            color: selectedDate == "Today" ? Color(0xFF1B1A1E) : Color(0xFFEBFAF9),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 11),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.all(Radius.circular(20)),
+                          color: selectedDate == "Tommorow" ? Color(0xFFFED289) : Colors.transparent,
+                          border: Border.all(color: Color(0xFFFED289), width: 1),
+                        ),
+                        child: Text(
+                          "Tommorow",
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            color: selectedDate == "Tommorow" ? Color(0xFF1B1A1E) : Color(0xFFEBFAF9),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
