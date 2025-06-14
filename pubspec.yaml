@@ -41,6 +41,12 @@ flutter:
     - assets/dropDownArrow.png
     - assets/addTaskIcon.png
     - assets/editIcon.png
+    - assets/loudAlertOn1.png
+    - assets/loudAlertOff1.png
+    - assets/mediumAlertOn1.png
+    - assets/mediumAlertOff1.png
+    - assets/taskDone.png
+    - assets/taskPending.png
 
   fonts:
     - family: Poppins

@@ -1,60 +1,32 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'task_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import '../models/task.dart';
 
 
 class TaskAddingScreen extends StatefulWidget {
-  const TaskAddingScreen({super.key});
+  final String taskId;
+  final bool isEdit;
+  const TaskAddingScreen({super.key, required this.taskId, required this.isEdit});
 
   @override
   State<TaskAddingScreen> createState() => _TaskAddingScreenState();
 }
 
 class _TaskAddingScreenState extends State<TaskAddingScreen> {
-  bool isImportant = false;
   double leftOffset = 0;
-
-  
-  String selectedBefore = "5 Mins";
-  String selectedAfter = "On Time";
-  final List<bool> _selectedDays = List.generate(7, (index) => false);
-
   DateTime now = DateTime.now();
   String formattedDate = DateFormat('EEEE, d MMMM').format(DateTime.now());
 
-
-  final fromHourController = TextEditingController();
-  final fromMinuteController = TextEditingController();
   final fromHourFocus = FocusNode();
   final fromMinuteFocus = FocusNode();
-
-  final toHourController = TextEditingController();
-  final toMinuteController = TextEditingController();
   final toHourFocus = FocusNode();
-  final toMinuteFocus = FocusNode();
-
-  String fromperiod = "A.M";
-  String toperiod = "A.M";
-
-  String selectedTag = "";
+  final toMinuteFocus = FocusNode();    
   final _tagFocusNode = FocusNode();
   final tagController = TextEditingController();
 
-  bool isBeforeLoudAlert = false;
-  bool isBeforeMediumAlert = false;
-
-  bool isAfterLoudAlert = false;
-  bool isAfterMediumAlert = false;
-
-
-  String taskName = "";
-  String date = DateFormat('d MM yyyy').format(DateTime.now());
-
-
   String showDate = "Today-${DateFormat('EEE, d MMMM').format(DateTime.now())}";
-
   @override
   void dispose() {
     fromHourController.dispose();
@@ -71,9 +43,76 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     super.dispose();
   }
 
+  // Datas to Submit
+  String taskName = "";
+  String date = DateFormat('d MM yyyy').format(DateTime.now());
+  final List<bool> _selectedDays = List.generate(7, (index) => false);
+  final fromHourController = TextEditingController();
+  final fromMinuteController = TextEditingController();
+  final toHourController = TextEditingController();
+  final toMinuteController = TextEditingController();
+  String fromperiod = "A.M";
+  String toperiod = "A.M";
+  String selectedTag = "";
+  bool isImportant = false;
+  String location = "";
+  String subTask = "";
+  bool isBeforeLoudAlert = false;
+  bool isBeforeMediumAlert = false;
+  bool isAfterLoudAlert = false;
+  bool isAfterMediumAlert = false;
+  String selectedBefore = "5 Mins";
+  String selectedAfter = "On Time";
+  // End
 
   void submitTask() {
+    int fromHour = int.tryParse(fromHourController.text) ?? 0;
+    int toHour = int.tryParse(toHourController.text) ?? 0;
+    // Convert to 24-hour format if PM and not 12
+    if (fromperiod == "P.M" && fromHour != 12) {
+      fromHour += 12;
+    }
+    if (toperiod == "P.M" && toHour != 12) {
+      toHour += 12;
+    }
+    // Handle midnight edge case (12 A.M.)
+    if (fromperiod == "A.M" && fromHour == 12) {
+      fromHour = 0;
+    }
+    if (toperiod == "A.M" && toHour == 12) {
+      toHour = 0;
+    }
+    String fromTime = "${fromHour.toString().padLeft(2, '0')}:${fromMinuteController.text.padLeft(2, '0')}";
+    String toTime = "${toHour.toString().padLeft(2, '0')}:${toMinuteController.text.padLeft(2, '0')}";
 
+    if (taskName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(fromTime)),
+      );
+      return;
+    }
+
+    final box = Hive.box<Task>('tasks');
+
+    final task = Task(
+      id: widget.taskId,
+      title: taskName,
+      date: date,
+      weekDays: _selectedDays,
+      fromTime: fromTime,
+      toTime: toTime,
+      tags: selectedTag,
+      important: isImportant,
+      location: location,
+      subTask: subTask,
+      beforeLoudAlert: isBeforeLoudAlert,
+      beforeMediumAlert: isBeforeMediumAlert,
+      afterLoudAlert: isAfterLoudAlert,
+      afterMediumAlert: isAfterMediumAlert,
+      alertBefore: selectedBefore,
+      alertAfter: selectedAfter,
+    );
+    box.put(widget.taskId, task); 
   }
 
   void _navigateToHome() {
@@ -147,7 +186,6 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     }
 
   }
-
   List indexList = [];
   void daySelection(int index) {
     setState(() {
@@ -254,7 +292,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           ),
                           const SizedBox(width: 8),
                            Text(
-                            "Add Task",
+                              widget.isEdit ? "Edit Task" : "Add Task",
                               style: TextStyle(
                                 color: Color(0xFFF4F4F5),
                                 fontFamily: 'Poppins',
@@ -507,9 +545,9 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
             if (fieldType == "taskName") {
               taskName = value;
             } else if (fieldType == "location") {
-              // Handle location change
+              location = value;
             } else if (fieldType == "subTask") {
-              // Handle sub-task change
+              subTask = value;
             }
           });
         },
@@ -598,8 +636,8 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildDigitField(
-                    controller:  label == "From" ? fromHourController : toHourController,
+                 _buildDigitField(
+                    controller: label == "From" ? fromHourController : toHourController,
                     focusNode: label == "From" ? fromHourFocus : toHourFocus,
                     onChanged: (value) {
                       if (value.length == 2) {
@@ -608,35 +646,64 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                         } else {
                           toMinuteFocus.requestFocus();
                         }
-                      } else if (value.isEmpty && label == "To") {
+                      } else if (value.isEmpty) {
+                        if(label == "From") {
+                          fromMinuteFocus.unfocus();
+                        } else {
                           fromMinuteFocus.requestFocus();
+                        }
+                        return;
+                      }
+
+                      int val = int.tryParse(value) ?? 0;
+                      if (val < 1 || val > 12) {
+                        String corrected = val < 1 ? '1' : '12';
+                        TextEditingController targetController =
+                            label == "From" ? fromHourController : toHourController;
+                        targetController.text = corrected;
+                        targetController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: corrected.length),
+                        );
                       }
                     },
                   ),
+
                   Container(
-            height: 40,
-            width: 1,
-            color: Colors.black,
-          ),
+                    height: 40,
+                    width: 1,
+                    color: Colors.black,
+                  ),
                   _buildDigitField(
                     controller: label == "From" ? fromMinuteController : toMinuteController,
                     focusNode: label == "From" ? fromMinuteFocus : toMinuteFocus,
                     onChanged: (value) {
-                      if (value.isEmpty) {
-                        if (label == "From") {
-                          fromHourFocus.requestFocus();
-                        } else {
-                          toHourFocus.requestFocus();
-                        }
-                      } else if (value.length == 2) {
+                      if (value.length == 2) {
                         if (label == "From") {
                           toHourFocus.requestFocus();
                         } else {
                           toMinuteFocus.unfocus();
                         }
+                      } else if (value.isEmpty) {
+                        if (label == "From") {
+                          fromHourFocus.requestFocus();
+                        } else {
+                          toHourFocus.requestFocus();
+                          return;
+                        }
+                      }
+                      int val = int.tryParse(value) ?? 0;
+                      if (val < 0 || val > 59) {
+                        final corrected = '00';
+                        TextEditingController targetController =
+                            label == "From" ? fromMinuteController : toMinuteController;
+                        targetController.text = corrected;
+                        targetController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: corrected.length),
+                        );
                       }
                     },
                   ),
+
                 ],
               ),
             ),
