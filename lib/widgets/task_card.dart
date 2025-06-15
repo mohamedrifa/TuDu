@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/task.dart';
 import 'package:intl/intl.dart';
+import '../screens/task_adding_screen.dart';
 
 class TaskCard extends StatelessWidget {
   final int index;
@@ -12,6 +13,26 @@ class TaskCard extends StatelessWidget {
     required this.index,
     required this.id,
   });
+  void _navigateToAddTaskScreen(BuildContext context, String addTaskId) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 600), // 1.5 seconds
+        pageBuilder: (context, animation, secondaryAnimation) => TaskAddingScreen(taskId: addTaskId, isEdit: true),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final begin = const Offset(0.0, 1.0);
+          final end = Offset.zero;
+          final curve = Curves.easeInOut;
+          final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          final offsetAnimation = animation.drive(tween);
+        return SlideTransition(
+            position: offsetAnimation,
+            child: child,
+          );
+        },
+      ),
+    );
+  }
 
   String timing(String fromTime, String toTime) {
     List<String> parts1 = fromTime.split(":");
@@ -34,11 +55,7 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final box = Hive.box<Task>('tasks');
-    final Task? task = box.values.cast<Task?>().firstWhere(
-      (task) => task?.id == id,
-      orElse: () => null,
-    );
-
+    final task = box.get(id);
     if (task == null) {
       return const SizedBox.shrink();
     }
@@ -50,7 +67,7 @@ class TaskCard extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
         child: InkWell(
           onTap: () {
-            // handle tap
+            _navigateToAddTaskScreen(context, task.id);
           },
           borderRadius: BorderRadius.circular(5),
           child: Padding(
@@ -109,38 +126,19 @@ class TaskCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Align(
-                          alignment: Alignment.topLeft,
-                          child: Wrap(
-                              spacing: 0,
-                              runSpacing: 5,
-                            alignment: WrapAlignment.start,
-                            children: [
-                              Container(
-                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.all(Radius.circular(15)),
-                                  color: Color(0xFF0C2C2C),
-                                ),
-                                child: Text(
-                                  task.tags,
-                                  style: TextStyle(
-                                    fontFamily: 'Poppins',
-                                    color: Color(0xFFEBFAF9),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                              ),
-                              if (task.important)
+                          alignment: Alignment.centerLeft,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
                                 Container(
                                   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                  margin: const EdgeInsets.only(left: 16),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.all(Radius.circular(15)),
-                                    color: Color(0xFF268D8C),
+                                    color: Color(0xFF0C2C2C),
                                   ),
                                   child: Text(
-                                    "Important",
+                                    task.tags,
                                     style: TextStyle(
                                       fontFamily: 'Poppins',
                                       color: Color(0xFFEBFAF9),
@@ -149,48 +147,66 @@ class TaskCard extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                              const SizedBox(width: 16),
-                              SizedBox(
-                                width: 86,
-                                height: 35,
-                                child: Row(
-                                  children: [
-                                    Material(
-                                      color: Colors.transparent,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                                      child: InkWell(
-                                        onTap: () {
-                                          // handle tap
-                                        },
-                                        borderRadius: BorderRadius.circular(5),
-                                        child: Image(
-                                          image: task.beforeLoudAlert || task.afterLoudAlert? AssetImage("assets/loudAlertOn1.png") : AssetImage("assets/loudAlertOff1.png"),
-                                          width: 35,
-                                          height: 35,
-                                        )
+                                if (task.important)
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    margin: const EdgeInsets.only(left: 16),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.all(Radius.circular(15)),
+                                      color: Color(0xFF268D8C),
+                                    ),
+                                    child: Text(
+                                      "Important",
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        color: Color(0xFFEBFAF9),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
                                       ),
                                     ),
-                                    const SizedBox(width: 16),
-                                    Material(
-                                      color: Colors.transparent,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                                      child: InkWell(
-                                        onTap: () {
-                                          // handle tap
-                                        },
-                                        borderRadius: BorderRadius.circular(5),
-                                        child: Image(
-                                          image: task.beforeMediumAlert || task.afterMediumAlert? AssetImage("assets/mediumAlertOn1.png") : AssetImage("assets/mediumAlertOff1.png"),
-                                          width: 35,
-                                          height: 35,
-                                        )
+                                  ),
+                                const SizedBox(width: 16),
+                                SizedBox(
+                                  width: 86,
+                                  height: 35,
+                                  child: Row(
+                                    children: [
+                                      Material(
+                                        color: Colors.transparent,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                                        child: InkWell(
+                                          onTap: () {
+                                            // handle tap
+                                          },
+                                          borderRadius: BorderRadius.circular(5),
+                                          child: Image(
+                                            image: task.beforeLoudAlert || task.afterLoudAlert? AssetImage("assets/loudAlertOn1.png") : AssetImage("assets/loudAlertOff1.png"),
+                                            width: 35,
+                                            height: 35,
+                                          )
+                                        ),
                                       ),
-                                    )
-                                  ],
+                                      const SizedBox(width: 16),
+                                      Material(
+                                        color: Colors.transparent,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                                        child: InkWell(
+                                          onTap: () {
+                                            // handle tap
+                                          },
+                                          borderRadius: BorderRadius.circular(5),
+                                          child: Image(
+                                            image: task.beforeMediumAlert || task.afterMediumAlert? AssetImage("assets/mediumAlertOn1.png") : AssetImage("assets/mediumAlertOff1.png"),
+                                            width: 35,
+                                            height: 35,
+                                          )
+                                        ),
+                                      )
+                                    ],
+                                  ),
                                 ),
-                              )
-                              
-                            ],
+                              ],
+                            )
                           )
                         )
                       ],

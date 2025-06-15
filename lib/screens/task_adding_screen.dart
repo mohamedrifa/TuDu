@@ -42,11 +42,14 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
      _tagFocusNode.dispose();
     super.dispose();
   }
+  final taskNameController = TextEditingController();
+  final locationController = TextEditingController();
+  final subTaskController = TextEditingController();
 
   // Datas to Submit
   String taskName = "";
   String date = DateFormat('d MM yyyy').format(DateTime.now());
-  final List<bool> _selectedDays = List.generate(7, (index) => false);
+  List<bool> _selectedDays = List.generate(7, (index) => false);
   final fromHourController = TextEditingController();
   final fromMinuteController = TextEditingController();
   final toHourController = TextEditingController();
@@ -64,6 +67,22 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   String selectedBefore = "5 Mins";
   String selectedAfter = "On Time";
   // End
+  @override
+  void initState() {
+    super.initState();
+    final box = Hive.box<Task>('tasks');
+    final task = box.get(widget.taskId);
+
+    taskNameController.text = task!.title;
+    taskName = task.title;
+
+    _selectedDays = task.weekDays;
+
+    date = task.date;
+
+    locationController.text = task.location;
+    location = task.location;
+  }
 
   void submitTask() {
     int fromHour = int.tryParse(fromHourController.text) ?? 0;
@@ -540,6 +559,9 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       child: Align(
         alignment: Alignment.centerLeft,
         child: TextField(
+        controller: fieldType == "taskName" ? taskNameController
+                    : fieldType == "location" ? locationController
+                    : subTaskController,
         onChanged: (value) {
           setState(() {
             if (fieldType == "taskName") {

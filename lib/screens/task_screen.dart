@@ -7,9 +7,14 @@ import 'task_adding_screen.dart';
 import 'package:intl/intl.dart';
 
 // ignore: must_be_immutable
-class TaskScreen extends StatelessWidget {
-  TaskScreen({super.key});
+class TaskScreen extends StatefulWidget {
+  const TaskScreen({super.key});
 
+  @override
+  State<TaskScreen> createState() => _TaskScreenState();
+}
+
+class _TaskScreenState extends State<TaskScreen> {
   DateTime now = DateTime.now();
   String addTaskId = DateFormat('yyyyMMddhhmmss').format(DateTime.now());
 
@@ -35,6 +40,12 @@ class TaskScreen extends StatelessWidget {
   }
 
   String selectedDate = "Today";
+  void changeSelectedDate(String date) {
+    
+    setState(() {
+      selectedDate = date;
+    });
+  }
 
 
   @override
@@ -61,40 +72,60 @@ class TaskScreen extends StatelessWidget {
                   child: Row(
                     children: [
                       // buttons needs to included
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.all(Radius.circular(20)),
-                          color: selectedDate == "Today" ? Color(0xFFFED289) : Colors.transparent,
-                          border: Border.all(color: Color(0xFFFED289), width: 1),
-                        ),
-                        child: Text(
-                          "Today",
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            color: selectedDate == "Today" ? Color(0xFF1B1A1E) : Color(0xFFEBFAF9),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
+                      Material(
+                        color: Colors.transparent,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        child: InkWell(
+                          onTap: () {
+                            changeSelectedDate("Today");
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.all(Radius.circular(20)),
+                              color: selectedDate == "Today" ? Color(0xFFFED289) : Colors.transparent,
+                              border: Border.all(color: Color(0xFFFED289), width: 1),
+                            ),
+                            child: Text(
+                              "Today",
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: selectedDate == "Today" ? Color(0xFF1B1A1E) : Color(0xFFEBFAF9),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
                           ),
-                        ),
+                        )
                       ),
                       SizedBox(width: 11),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.all(Radius.circular(20)),
-                          color: selectedDate == "Tommorow" ? Color(0xFFFED289) : Colors.transparent,
-                          border: Border.all(color: Color(0xFFFED289), width: 1),
-                        ),
-                        child: Text(
-                          "Tommorow",
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            color: selectedDate == "Tommorow" ? Color(0xFF1B1A1E) : Color(0xFFEBFAF9),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
+                      Material(
+                        color: Colors.transparent,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        child: InkWell(
+                          onTap: () {
+                            changeSelectedDate("Tommorow");
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.all(Radius.circular(20)),
+                              color: selectedDate == "Tommorow" ? Color(0xFFFED289) : Colors.transparent,
+                              border: Border.all(color: Color(0xFFFED289), width: 1),
+                            ),
+                            child: Text(
+                              "Tommorow",
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: selectedDate == "Tommorow" ? Color(0xFF1B1A1E) : Color(0xFFEBFAF9),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
                           ),
-                        ),
+                        )
                       ),
                     ],
                   ),
