@@ -67,21 +67,45 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   String selectedBefore = "5 Mins";
   String selectedAfter = "On Time";
   // End
+
+  bool _selectedDaysCheck () {
+    for (int i = 0; i < _selectedDays.length; i++) {
+      if(_selectedDays[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
     final box = Hive.box<Task>('tasks');
     final task = box.get(widget.taskId);
+    if(widget.isEdit) {
+      taskNameController.text = task!.title;
+      taskName = task.title;
 
-    taskNameController.text = task!.title;
-    taskName = task.title;
+      _selectedDays = task.weekDays;
+      date = task.date;
+      if(_selectedDaysCheck()) {
+        String dateString = task.date;
+        DateFormat format = DateFormat("d MM yyyy");
+        DateTime parsedDate = format.parse(dateString);
+        showdateModify(parsedDate);
+        showDate = date;
+      } else {
+        for (int i = 0; i < _selectedDays.length; i++) {
+          daySelection(i);
+          updateShowDate();
+        }
+      }
+      
 
-    _selectedDays = task.weekDays;
-
-    date = task.date;
-
-    locationController.text = task.location;
-    location = task.location;
+      selectedTag = task.tags;
+      locationController.text = task.location;
+      location = task.location;
+    }
   }
 
   void submitTask() {
@@ -158,6 +182,28 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   );
 }
 
+  void showdateModify (DateTime picked) {
+    setState(() {
+      selectedDate = picked;
+      date = DateFormat('d MM yyyy').format(selectedDate!);
+
+      final today = DateTime.now();
+      final todayDateOnly = DateTime(today.year, today.month, today.day);
+      final selectedDateOnly = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day);
+      if (selectedDateOnly.isAtSameMomentAs(todayDateOnly)) {
+        showDate = "Today-${DateFormat('EEE, d MMMM').format(selectedDate!)}";
+      } else if (selectedDateOnly.isAtSameMomentAs(todayDateOnly.add(Duration(days: 1)))) {
+        showDate = "Tomorrow-${DateFormat('EEE, d MMMM').format(selectedDate!)}";
+      } else {
+        showDate = DateFormat('EEE, d MMMM').format(selectedDate!);
+      }
+      for (int i = 0; i < _selectedDays.length; i++) {
+        _selectedDays[i] = false;
+      }
+
+    });
+  }
+
   DateTime? selectedDate;
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -186,29 +232,12 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     );
 
     if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-        date = DateFormat('d MM yyyy').format(selectedDate!);
-
-        final today = DateTime.now();
-        final todayDateOnly = DateTime(today.year, today.month, today.day);
-        final selectedDateOnly = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day);
-
-        if (selectedDateOnly.isAtSameMomentAs(todayDateOnly)) {
-          showDate = "Today-${DateFormat('EEE, d MMMM').format(selectedDate!)}";
-        } else if (selectedDateOnly.isAtSameMomentAs(todayDateOnly.add(Duration(days: 1)))) {
-          showDate = "Tomorrow-${DateFormat('EEE, d MMMM').format(selectedDate!)}";
-        } else {
-          showDate = DateFormat('EEE, d MMMM').format(selectedDate!);
-        }
-      });
+      showdateModify(picked);
     }
-
   }
   List indexList = [];
   void daySelection(int index) {
     setState(() {
-      _selectedDays[index] = !_selectedDays[index];
       if (_selectedDays[index]) {
         indexList.add(index);
         indexList.sort();
@@ -372,7 +401,10 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap: () {
-                                    setState(() { daySelection(index); });
+                                    setState(() { 
+                                      _selectedDays[index] = !_selectedDays[index];
+                                      daySelection(index); 
+                                    });
                                     updateShowDate();
                                   },
                                   borderRadius: BorderRadius.circular(5),
