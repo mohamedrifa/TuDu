@@ -100,11 +100,43 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
           updateShowDate();
         }
       }
-      
+
+      List<String> parts1 = task.fromTime.split(":");
+      int fromHour = int.parse(parts1[0]);
+      int fromMinute = int.parse(parts1[1]);
+      DateTime time1 = DateTime(0, 1, 1, fromHour, fromMinute);
+      fromHourController.text = DateFormat('hh').format(time1);
+      fromMinuteController.text = DateFormat('mm').format(time1);
+      fromperiod = DateFormat('a').format(time1).replaceAll("AM", "A.M").replaceAll("PM", "P.M");
+
+      List<String> parts2 = task.toTime.split(":");
+      int toHour = int.parse(parts2[0]);
+      int toMinute = int.parse(parts2[1]);
+      DateTime time2 = DateTime(0, 1, 1, toHour, toMinute);
+      toHourController.text = DateFormat('hh').format(time2);
+      toMinuteController.text = DateFormat('mm').format(time2);
+      toperiod = DateFormat('a').format(time2).replaceAll("AM", "A.M").replaceAll("PM", "P.M");
 
       selectedTag = task.tags;
+
+      isImportant = task.important;
+
       locationController.text = task.location;
       location = task.location;
+
+      subTaskController.text = task.subTask;
+      subTask = task.subTask;
+
+      isBeforeLoudAlert = task.beforeLoudAlert;
+      isBeforeMediumAlert = task.beforeMediumAlert;
+
+      selectedBefore = task.alertBefore;
+
+      isAfterLoudAlert = task.afterLoudAlert;
+      isAfterMediumAlert = task.afterMediumAlert;
+
+      selectedAfter = task.alertAfter;
+
     }
   }
 
@@ -156,6 +188,9 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       alertAfter: selectedAfter,
     );
     box.put(widget.taskId, task); 
+    
+    // alert needs to be added
+    _navigateToHome();
   }
 
   void _navigateToHome() {
