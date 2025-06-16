@@ -53,20 +53,60 @@ class _TaskScreenState extends State<TaskScreen> {
       }
     });
   }
-
-  bool filteredList(String date, List weekDays, bool isImportant){
-    if(date != "repeat") {
-      DateFormat format = DateFormat("d MM yyyy");
-      DateTime parsedDate = format.parse(date);
-      if(showDate == DateFormat('d EEE MMM yyyy').format(parsedDate)) {
-        return true;
-      } else {
+  bool allDaysFalse(List weekDays) {
+    for (int i = 0; i<weekDays.length; i++) {
+      if (weekDays[i]) {
         return false;
       }
+    }
+    return true;
+  }
+
+  bool filteredList(String date, List weekDays, bool isImportant) {
+    if (allDaysFalse(weekDays)) {
+      DateFormat inputFormat = DateFormat("d MM yyyy");
+      DateTime parsedDate = inputFormat.parse(date);
+      String formattedDate = DateFormat('d EEE MMM yyyy').format(parsedDate);
+      return showDate == formattedDate;
     } else {
+      DateFormat inputFormat = DateFormat("d EEE MMM yyyy");
+      DateTime parsedDate = inputFormat.parse(showDate);
+      String formattedDate = DateFormat('EEE').format(parsedDate);
+      switch(formattedDate) {
+        case "Mon":
+          if(weekDays[0]) {
+            return true;
+          }
+        case "Tue":
+          if(weekDays[1]) {
+            return true;
+          }
+        case "Wed":
+          if(weekDays[2]) {
+            return true;
+          }
+        case "Thu":
+          if(weekDays[3]) {
+            return true;
+          }
+        case "Fri":
+          if(weekDays[4]) {
+            return true;
+          }
+        case "Sat":
+          if(weekDays[5]) {
+            return true;
+          }
+        case "Sun":
+          if(weekDays[6]) {
+            return true;
+          }
+      }
       return false;
     }
   }
+
+  
   @override
   Widget build(BuildContext context) {
     final tasksBox = HiveService.getTasksBox();

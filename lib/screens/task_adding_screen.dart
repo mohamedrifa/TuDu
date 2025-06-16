@@ -110,7 +110,6 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         DateFormat format = DateFormat("d MM yyyy");
         DateTime parsedDate = format.parse(dateString);
         showdateModify(parsedDate);
-        showDate = date;
       } else {
         for (int i = 0; i < _selectedDays.length; i++) {
           daySelection(i);
