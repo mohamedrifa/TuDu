@@ -131,26 +131,28 @@ class TaskCard extends StatelessWidget {
                             scrollDirection: Axis.horizontal,
                             child: Row(
                               children: [
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.all(Radius.circular(15)),
-                                    color: Color(0xFF0C2C2C),
-                                  ),
-                                  child: Text(
-                                    task.tags,
-                                    style: TextStyle(
-                                      fontFamily: 'Poppins',
-                                      color: Color(0xFFEBFAF9),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w400,
+                                if (task.tags != "")
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    margin: const EdgeInsets.only(right: 16),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.all(Radius.circular(15)),
+                                      color: Color(0xFF0C2C2C),
+                                    ),
+                                    child: Text(
+                                      task.tags,
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        color: Color(0xFFEBFAF9),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                      ),
                                     ),
                                   ),
-                                ),
                                 if (task.important)
                                   Container(
                                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                    margin: const EdgeInsets.only(left: 16),
+                                    margin: const EdgeInsets.only(right: 16),
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.all(Radius.circular(15)),
                                       color: Color(0xFF268D8C),
@@ -165,7 +167,6 @@ class TaskCard extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                const SizedBox(width: 16),
                                 SizedBox(
                                   width: 86,
                                   height: 35,

@@ -40,14 +40,33 @@ class _TaskScreenState extends State<TaskScreen> {
   }
 
   String selectedDate = "Today";
+  String showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now());
   void changeSelectedDate(String date) {
-    
     setState(() {
       selectedDate = date;
+      if (selectedDate == "Today") {
+        showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now());
+      } else if (selectedDate == "Tommorow") {
+        showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now().add(Duration(days: 1)));
+      } else {
+
+      }
     });
   }
 
-
+  bool filteredList(String date, List weekDays, bool isImportant){
+    if(date != "repeat") {
+      DateFormat format = DateFormat("d MM yyyy");
+      DateTime parsedDate = format.parse(date);
+      if(showDate == DateFormat('d EEE MMM yyyy').format(parsedDate)) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final tasksBox = HiveService.getTasksBox();
@@ -137,7 +156,7 @@ class _TaskScreenState extends State<TaskScreen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      "16 Tue Mar 2025",
+                      showDate,
                       style: TextStyle(
                           color: Color(0xFFEBFAF9),
                           fontFamily: 'Quantico',
@@ -164,10 +183,12 @@ class _TaskScreenState extends State<TaskScreen> {
                                 itemCount: tasks.length,
                                 itemBuilder: (context, index) {
                                   final task = tasks[index];
-                                  return TaskCard(
-                                    index: index,
-                                    id: task.id,
-                                  );
+                                  if(filteredList(task.date, task.weekDays, task.important)){
+                                    return TaskCard(
+                                      index: index,
+                                      id: task.id,
+                                    );
+                                  }
                                 },
                               ),
                             ),

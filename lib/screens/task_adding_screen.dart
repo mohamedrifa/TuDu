@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'task_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/task.dart';
-
+import 'package:fluttertoast/fluttertoast.dart';
 
 class TaskAddingScreen extends StatefulWidget {
   final String taskId;
@@ -24,6 +25,11 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   final toHourFocus = FocusNode();
   final toMinuteFocus = FocusNode();    
   final _tagFocusNode = FocusNode();
+  final fromMinuteRawKeyFocus = FocusNode(); 
+  final toMinuteRawKeyFocus = FocusNode();
+  final fromHourRawFocus = FocusNode();
+  final toHourRawFocus = FocusNode();
+
   final tagController = TextEditingController();
 
   String showDate = "Today-${DateFormat('EEE, d MMMM').format(DateTime.now())}";
@@ -45,6 +51,17 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   final taskNameController = TextEditingController();
   final locationController = TextEditingController();
   final subTaskController = TextEditingController();
+
+  void toast (String msg) {
+    Fluttertoast.showToast(
+      msg: msg,
+      toastLength: Toast.LENGTH_SHORT, // or Toast.LENGTH_LONG
+      gravity: ToastGravity.CENTER, // or TOP, CENTER
+      backgroundColor: Colors.black,
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
+  }
 
   // Datas to Submit
   String taskName = "";
@@ -141,8 +158,72 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   }
 
   void submitTask() {
+    bool toAlert = false;
+    String toastMessage = "";
+    if(taskName == ""){
+      toastMessage != "" ? toastMessage = "$toastMessage," : toastMessage = "";
+      toAlert = true;
+      toastMessage = "$toastMessage Task Name";
+    }
+    if(fromHourController.text == "" || fromMinuteController.text == ""  || toHourController.text == "" || toMinuteController.text == "") {
+      toastMessage != "" ? toastMessage = "$toastMessage," : toastMessage = "";
+      toAlert = true;
+      toastMessage = "$toastMessage Time Scheduling";
+    }
+    if(location == "") {
+      toastMessage != "" ? toastMessage = "$toastMessage," : toastMessage = "";
+      toAlert = true;
+      toastMessage = "$toastMessage Loaction";
+    }
+    if(toAlert){
+      toastMessage = "$toastMessage are Required";
+      toast(toastMessage);
+      return;
+    }
+
+    bool fromFlag  =  false;
+    bool toFlag  = false;
     int fromHour = int.tryParse(fromHourController.text) ?? 0;
     int toHour = int.tryParse(toHourController.text) ?? 0;
+    int fromMinute = int.tryParse(fromMinuteController.text) ?? 0;
+    int toMinute = int.tryParse(toMinuteController.text) ?? 0;
+    if(fromHour > 12 || fromHour < 1 || fromMinute > 59 || fromMinute < 0) {
+      fromHourController.text = "";
+      fromMinuteController.text = "";
+      toastMessage = "Invalid From Time";
+      fromFlag = true;
+    }
+    if(toHour > 12 || toHour < 1 || toMinute > 59 || toMinute < 0) {
+      toHourController.text = "";
+      toMinuteController.text = "";
+      toastMessage = "Invalid To Time";
+      toFlag = true;
+    }
+    if(fromFlag && toFlag) {
+      toastMessage = "Invalid From and To Time";
+    }
+
+    if(fromFlag || toFlag) {
+      toast(toastMessage);
+      return;
+    }
+    toastMessage = "From Time should be less than To Time";
+    if(fromHour>toHour) {
+      fromHourController.text = "";
+      fromMinuteController.text = "";
+      toHourController.text = "";
+      toMinuteController.text = "";
+      toast(toastMessage);
+      return;
+    } else if (fromHour == toHour && fromMinute >= toMinute) {
+      fromHourController.text = "";
+      fromMinuteController.text = "";
+      toHourController.text = "";
+      toMinuteController.text = "";
+      toast(toastMessage);
+      return;
+    }
+
     // Convert to 24-hour format if PM and not 12
     if (fromperiod == "P.M" && fromHour != 12) {
       fromHour += 12;
@@ -160,15 +241,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     String fromTime = "${fromHour.toString().padLeft(2, '0')}:${fromMinuteController.text.padLeft(2, '0')}";
     String toTime = "${toHour.toString().padLeft(2, '0')}:${toMinuteController.text.padLeft(2, '0')}";
 
-    if (taskName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(fromTime)),
-      );
-      return;
-    }
-
     final box = Hive.box<Task>('tasks');
-
     final task = Task(
       id: widget.taskId,
       title: taskName,
@@ -188,8 +261,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       alertAfter: selectedAfter,
     );
     box.put(widget.taskId, task); 
-    
-    // alert needs to be added
+    toast(widget.isEdit? "Task Edited" : "Task Added");
     _navigateToHome();
   }
 
@@ -197,26 +269,33 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     setState(() {
       leftOffset = MediaQuery.of(context).size.width; // Adjust this value as needed for your animation
     });
-  Navigator.of(context).pushReplacement(
-    PageRouteBuilder(
-      transitionDuration: const Duration(milliseconds: 600),
-      pageBuilder: (_, __, ___) => TaskScreen(),
-      transitionsBuilder: (_, animation, __, child) {
-        // Horizontal slide from left to right
-        final tween = Tween<Offset>(
-          begin: const Offset(-1.0, 0.0), // Start offscreen from the left
-          end: Offset.zero,               // Slide into position
-        ).chain(CurveTween(curve: Curves.easeInOut));
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 600),
+        pageBuilder: (_, __, ___) => TaskScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          // Horizontal slide from left to right
+          final tween = Tween<Offset>(
+            begin: const Offset(-1.0, 0.0), // Start offscreen from the left
+            end: Offset.zero,               // Slide into position
+          ).chain(CurveTween(curve: Curves.easeInOut));
+  
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
 
-        return SlideTransition(
-          position: animation.drive(tween),
-          child: child,
-        );
-      },
-    ),
-  );
-}
-
+  void deletetask() {
+    final box = Hive.box<Task>('tasks');
+    box.delete(widget.taskId);
+    toast("Task Deleted");
+    _navigateToHome();
+  }
+  
   void showdateModify (DateTime picked) {
     setState(() {
       selectedDate = picked;
@@ -343,7 +422,6 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
               right: -leftOffset,
               bottom: 0,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -572,18 +650,22 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                   child: Center(
                                     child: Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
-                                      children: const [
+                                      children: [
                                         Text(
-                                          "ADD",
-                                          style: TextStyle(
+                                          widget.isEdit ? "Edit" : "ADD",
+                                          style: const TextStyle(
                                             color: Color(0xFFEBFAF9),
                                             fontSize: 24,
                                             fontWeight: FontWeight.w600,
                                             fontFamily: 'Poppins',
                                           ),
                                         ),
-                                        SizedBox(width: 5),
-                                        Image(image: AssetImage("assets/addTaskIcon.png"), width: 30, height: 30)
+                                        const SizedBox(width: 5),
+                                        Image(
+                                          image: widget.isEdit ? AssetImage("assets/editIcon.png"): AssetImage("assets/addTaskIcon.png"), 
+                                          width: 30, 
+                                          height: 30
+                                        )
                                       ],
                                     )
                                   ),
@@ -594,6 +676,46 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                         ],
                       ),
                     ),
+                    if(widget.isEdit)  
+                      Material(
+                        child: InkWell(
+                          onTap: () => {
+                            deletetask()
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            height: 64,
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF802020), Color(0xFF551515)],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  "assets/dustBin.png",
+                                  width: 21,
+                                  height: 22.91,
+                                ),
+                                const SizedBox(width: 10),
+                                const Text(
+                                  "Delete",
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 24,
+                                    color: Color(0xFFEBFAF9),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        ),
+                      )
                   ],
                 ),
               ),
@@ -727,36 +849,36 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                 children: [
                  _buildDigitField(
                     controller: label == "From" ? fromHourController : toHourController,
-                    focusNode: label == "From" ? fromHourFocus : toHourFocus,
+                    textFieldFocusNode: label == "From" ? fromHourFocus : toHourFocus,
+                    rawKeyFocusNode: label == "From" ? fromHourRawFocus : toHourRawFocus,
                     onChanged: (value) {
+                      int val = int.tryParse(value) ?? 0;
+                      if (val > 1 && val < 10) {
+                        value = "0$value";
+                        TextEditingController targetController =
+                            label == "From" ? fromHourController : toHourController;
+                        targetController.text = value;
+                        targetController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: value.length),
+                        );
+                      }
                       if (value.length == 2) {
                         if (label == "From") {
                           fromMinuteFocus.requestFocus();
                         } else {
                           toMinuteFocus.requestFocus();
                         }
-                      } else if (value.isEmpty) {
-                        if(label == "From") {
-                          fromMinuteFocus.unfocus();
-                        } else {
-                          fromMinuteFocus.requestFocus();
-                        }
-                        return;
                       }
-
-                      int val = int.tryParse(value) ?? 0;
-                      if (val < 1 || val > 12) {
-                        String corrected = val < 1 ? '1' : '12';
-                        TextEditingController targetController =
-                            label == "From" ? fromHourController : toHourController;
-                        targetController.text = corrected;
-                        targetController.selection = TextSelection.fromPosition(
-                          TextPosition(offset: corrected.length),
-                        );
+                    },
+                    onBackspacePressed: () {
+                      // If the field is empty and user hits backspace, go back to previous field
+                      if (label == "From") {
+                        fromMinuteFocus.unfocus();
+                      } else {
+                        fromMinuteFocus.requestFocus();
                       }
                     },
                   ),
-
                   Container(
                     height: 40,
                     width: 1,
@@ -764,7 +886,8 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                   ),
                   _buildDigitField(
                     controller: label == "From" ? fromMinuteController : toMinuteController,
-                    focusNode: label == "From" ? fromMinuteFocus : toMinuteFocus,
+                    textFieldFocusNode: label == "From" ? fromMinuteFocus : toMinuteFocus,
+                    rawKeyFocusNode: label == "From" ? fromMinuteRawKeyFocus : toMinuteRawKeyFocus,
                     onChanged: (value) {
                       if (value.length == 2) {
                         if (label == "From") {
@@ -777,22 +900,17 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           fromHourFocus.requestFocus();
                         } else {
                           toHourFocus.requestFocus();
-                          return;
                         }
                       }
-                      int val = int.tryParse(value) ?? 0;
-                      if (val < 0 || val > 59) {
-                        final corrected = '00';
-                        TextEditingController targetController =
-                            label == "From" ? fromMinuteController : toMinuteController;
-                        targetController.text = corrected;
-                        targetController.selection = TextSelection.fromPosition(
-                          TextPosition(offset: corrected.length),
-                        );
+                    },
+                    onBackspacePressed: () {
+                      if (label == "From") {
+                        fromHourFocus.requestFocus();
+                      } else {
+                        toHourFocus.requestFocus();
                       }
                     },
                   ),
-
                 ],
               ),
             ),
@@ -841,16 +959,28 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   }
 
   Widget _buildDigitField({
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    required void Function(String) onChanged,
-  }) {
-    return SizedBox(
-      width: 46,
-      height: 33,
+  required TextEditingController controller,
+  required FocusNode textFieldFocusNode, // for TextField
+  required FocusNode rawKeyFocusNode,    // for RawKeyboardListener
+  required void Function(String) onChanged,
+  required VoidCallback onBackspacePressed,
+}) {
+  return SizedBox(
+    width: 46,
+    height: 33,
+    child: RawKeyboardListener(
+      focusNode: rawKeyFocusNode, // ✅ CORRECT focus node for RawKeyboardListener
+      onKey: (RawKeyEvent event) {
+        if (event is RawKeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.backspace) {
+          if (controller.text.isEmpty) {
+            onBackspacePressed(); // ✅ Call your handler
+          }
+        }
+      },
       child: TextField(
         controller: controller,
-        focusNode: focusNode,
+        focusNode: textFieldFocusNode, // ✅ CORRECT focus node for TextField
         onChanged: onChanged,
         cursorColor: Colors.black,
         keyboardType: TextInputType.number,
@@ -858,7 +988,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
-          fontFamily: 'Quantico', 
+          fontFamily: 'Quantico',
         ),
         textAlign: TextAlign.center,
         decoration: const InputDecoration(
@@ -873,9 +1003,10 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
           border: InputBorder.none,
         ),
       ),
-    );
-  }
-
+    ),
+  );
+}
+ 
   Widget _buildTag(String text) {
     return Material(
       color: Colors.transparent,
