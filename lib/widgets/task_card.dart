@@ -52,6 +52,26 @@ class TaskCard extends StatelessWidget {
     return formattedTime1 + " To " + formattedTime2;
   }
 
+  void handleLoudAlert(bool alert) {
+    final box = Hive.box<Task>('tasks');
+    final task = box.get(id);
+    if (task != null) {
+      task.beforeLoudAlert = !alert;
+      task.afterLoudAlert = !alert;
+      box.put(id, task);
+    }
+  }
+
+  void handleMediumAlert(bool alert) {
+    final box = Hive.box<Task>('tasks');
+    final task = box.get(id);
+    if (task != null) {
+      task.beforeMediumAlert = !alert;
+      task.afterMediumAlert = !alert;
+      box.put(id, task);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final box = Hive.box<Task>('tasks');
@@ -177,7 +197,7 @@ class TaskCard extends StatelessWidget {
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
                                         child: InkWell(
                                           onTap: () {
-                                            // handle tap
+                                            handleLoudAlert(task.beforeLoudAlert || task.afterLoudAlert);
                                           },
                                           borderRadius: BorderRadius.circular(5),
                                           child: Image(
@@ -193,7 +213,7 @@ class TaskCard extends StatelessWidget {
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
                                         child: InkWell(
                                           onTap: () {
-                                            // handle tap
+                                            handleMediumAlert(task.beforeMediumAlert || task.afterMediumAlert);
                                           },
                                           borderRadius: BorderRadius.circular(5),
                                           child: Image(

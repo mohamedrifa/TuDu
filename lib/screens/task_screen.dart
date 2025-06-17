@@ -5,6 +5,7 @@ import '../models/task.dart';
 import '../database/hive_service.dart';
 import 'task_adding_screen.dart';
 import 'package:intl/intl.dart';
+import '../widgets/quickLinks.dart';
 
 // ignore: must_be_immutable
 class TaskScreen extends StatefulWidget {
@@ -18,20 +19,21 @@ class _TaskScreenState extends State<TaskScreen> {
   DateTime now = DateTime.now();
   String addTaskId = DateFormat('yyyyMMddhhmmss').format(DateTime.now());
 
+  String selectedDate = "Today";
+  String showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now());
+
   void _navigateToAddTaskScreen(BuildContext context) {
     Navigator.push(
       context,
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 600), // 1.5 seconds
-        pageBuilder: (context, animation, secondaryAnimation) => TaskAddingScreen(taskId: addTaskId, isEdit: false),
+        transitionDuration: const Duration(milliseconds: 600),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            TaskAddingScreen(taskId: addTaskId, isEdit: false),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final begin = const Offset(0.0, 1.0);
-          final end = Offset.zero;
-          final curve = Curves.easeInOut;
-          final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          final offsetAnimation = animation.drive(tween);
-        return SlideTransition(
-            position: offsetAnimation,
+          final tween = Tween(begin: const Offset(0.0, 1.0), end: Offset.zero)
+              .chain(CurveTween(curve: Curves.easeInOut));
+          return SlideTransition(
+            position: animation.drive(tween),
             child: child,
           );
         },
@@ -39,157 +41,98 @@ class _TaskScreenState extends State<TaskScreen> {
     );
   }
 
-  String selectedDate = "Today";
-  String showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now());
   void changeSelectedDate(String date) {
     setState(() {
       selectedDate = date;
       if (selectedDate == "Today") {
         showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now());
-      } else if (selectedDate == "Tommorow") {
-        showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now().add(Duration(days: 1)));
-      } else {
-
+      } else if (selectedDate == "Tomorrow") {
+        showDate = DateFormat('d EEE MMM yyyy')
+            .format(DateTime.now().add(Duration(days: 1)));
       }
     });
   }
+  
+  bool quickLinksEnabled = false;
+  void quickLinkWidget() {
+    setState(() {
+      quickLinksEnabled = true;
+    });
+  }
+
   bool allDaysFalse(List weekDays) {
-    for (int i = 0; i<weekDays.length; i++) {
-      if (weekDays[i]) {
-        return false;
-      }
+    for (var day in weekDays) {
+      if (day) return false;
     }
     return true;
   }
 
-  bool filteredList(String date, List weekDays, bool isImportant) {
+  bool filteredList(String date, List weekDays) {
     if (allDaysFalse(weekDays)) {
       DateFormat inputFormat = DateFormat("d MM yyyy");
       DateTime parsedDate = inputFormat.parse(date);
       String formattedDate = DateFormat('d EEE MMM yyyy').format(parsedDate);
       return showDate == formattedDate;
     } else {
-      DateFormat inputFormat = DateFormat("d EEE MMM yyyy");
-      DateTime parsedDate = inputFormat.parse(showDate);
-      String formattedDate = DateFormat('EEE').format(parsedDate);
-      switch(formattedDate) {
+      DateTime parsedDate = DateFormat("d EEE MMM yyyy").parse(showDate);
+      String formattedDay = DateFormat('EEE').format(parsedDate);
+
+      switch (formattedDay) {
         case "Mon":
-          if(weekDays[0]) {
-            return true;
-          }
+          return weekDays[0];
         case "Tue":
-          if(weekDays[1]) {
-            return true;
-          }
+          return weekDays[1];
         case "Wed":
-          if(weekDays[2]) {
-            return true;
-          }
+          return weekDays[2];
         case "Thu":
-          if(weekDays[3]) {
-            return true;
-          }
+          return weekDays[3];
         case "Fri":
-          if(weekDays[4]) {
-            return true;
-          }
+          return weekDays[4];
         case "Sat":
-          if(weekDays[5]) {
-            return true;
-          }
+          return weekDays[5];
         case "Sun":
-          if(weekDays[6]) {
-            return true;
-          }
+          return weekDays[6];
+        default:
+          return false;
       }
-      return false;
     }
   }
 
-  
   @override
   Widget build(BuildContext context) {
     final tasksBox = HiveService.getTasksBox();
     return Scaffold(
-      backgroundColor: Color(0xFF1E1E1E),
+      backgroundColor: const Color(0xFF1E1E1E),
       body: SafeArea(
         child: Stack(
           children: [
             Positioned(
               top: 47.48,
               right: 0,
-              child: Image(
-                width: 66.8,
-                image: AssetImage('assets/pageMark.png'),
+              child: GestureDetector(
+                onTap: () {
+                  quickLinkWidget();
+                },
+                child: Image(
+                  width: 66.8,
+                  image: AssetImage('assets/pageMark.png'),
+                ),
               ),
             ),
+
             Column(
               children: [
                 Padding(
-                  padding:
-                      const EdgeInsets.only(top: 66.0, left: 16.0, right: 16.0),
+                  padding: const EdgeInsets.only(
+                      top: 66.0, left: 16.0, right: 16.0),
                   child: Row(
                     children: [
-                      // buttons needs to included
-                      Material(
-                        color: Colors.transparent,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        child: InkWell(
-                          onTap: () {
-                            changeSelectedDate("Today");
-                          },
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.all(Radius.circular(20)),
-                              color: selectedDate == "Today" ? Color(0xFFFED289) : Colors.transparent,
-                              border: Border.all(color: Color(0xFFFED289), width: 1),
-                            ),
-                            child: Text(
-                              "Today",
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                color: selectedDate == "Today" ? Color(0xFF1B1A1E) : Color(0xFFEBFAF9),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        )
-                      ),
-                      SizedBox(width: 11),
-                      Material(
-                        color: Colors.transparent,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        child: InkWell(
-                          onTap: () {
-                            changeSelectedDate("Tommorow");
-                          },
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.all(Radius.circular(20)),
-                              color: selectedDate == "Tommorow" ? Color(0xFFFED289) : Colors.transparent,
-                              border: Border.all(color: Color(0xFFFED289), width: 1),
-                            ),
-                            child: Text(
-                              "Tommorow",
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                color: selectedDate == "Tommorow" ? Color(0xFF1B1A1E) : Color(0xFFEBFAF9),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        )
-                      ),
+                      _buildDateSelector("Today"),
+                      const SizedBox(width: 11),
+                      _buildDateSelector("Tomorrow"),
                     ],
                   ),
                 ),
-                // Date Text
                 Padding(
                   padding:
                       const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
@@ -197,89 +140,135 @@ class _TaskScreenState extends State<TaskScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       showDate,
-                      style: TextStyle(
-                          color: Color(0xFFEBFAF9),
-                          fontFamily: 'Quantico',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 24),
+                      style: const TextStyle(
+                        color: Color(0xFFEBFAF9),
+                        fontFamily: 'Quantico',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 24,
+                      ),
                     ),
                   ),
                 ),
-                // Watch for changes in Hive box
                 Expanded(
                   child: ValueListenableBuilder<Box<Task>>(
                     valueListenable: tasksBox.listenable(),
                     builder: (context, box, _) {
                       final tasks = box.values.toList();
+                      final filteredTasks = tasks
+                          .where((task) =>
+                              filteredList(task.date, task.weekDays))
+                          .toList();
 
-                      if (tasks.isEmpty) {
+                      if (filteredTasks.isEmpty) {
                         return _emptyTaskWidget(context);
-                      } else {
-                        return Column(
-                          children: [
-                            Expanded(
-                              child: ListView.builder(
-                                padding: const EdgeInsets.all(16.0),
-                                itemCount: tasks.length,
-                                itemBuilder: (context, index) {
-                                  final task = tasks[index];
-                                  if(filteredList(task.date, task.weekDays, task.important)){
-                                    return TaskCard(
-                                      index: index,
-                                      id: task.id,
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
-                            Container(
-                              width: double.infinity,
-                              alignment: Alignment.centerRight,
-                              child: Material(
-                                color: Colors.transparent,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0, vertical: 14.6),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Text(
-                                        'Add New',
-                                        style: TextStyle(
-                                          color: Color(0xFFEBFAF9),
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w600,
-                                          fontFamily: 'Poppins',
-                                        ),
-                                      ),
-                                      const SizedBox(width: 24.75),
-                                      InkWell(
-                                        onTap: () => _navigateToAddTaskScreen(context),
-                                        borderRadius: BorderRadius.circular(8),
-                                        splashColor: Colors.white24,
-                                        child: const Image(
-                                          image: AssetImage('assets/addTaskPlus.png'),
-                                          width: 52.5,
-                                          height: 52.5,
-                                          fit: BoxFit.fill,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                        );
                       }
+
+                      return Column(
+                        children: [
+                          Expanded(
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(16.0),
+                              itemCount: filteredTasks.length,
+                              itemBuilder: (context, index) {
+                                final task = filteredTasks[index];
+                                return TaskCard(
+                                  index: index,
+                                  id: task.id,
+                                );
+                              },
+                            ),
+                          ),
+                          _buildAddNewButton(context),
+                        ],
+                      );
                     },
                   ),
                 ),
-
-                
               ],
-            )
+            ),
+
+            if(quickLinksEnabled)
+              QuickLinks(
+                quickLinksEnabled:quickLinksEnabled,
+                onToggle: (value) {
+                  setState(() {
+                    quickLinksEnabled = value;
+                  });
+                },
+              )
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateSelector(String label) {
+    return Material(
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: InkWell(
+        onTap: () => changeSelectedDate(label),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.all(Radius.circular(20)),
+            color: selectedDate == label
+                ? const Color(0xFFFED289)
+                : Colors.transparent,
+            border: Border.all(color: const Color(0xFFFED289), width: 1),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              color: selectedDate == label
+                  ? const Color(0xFF1B1A1E)
+                  : const Color(0xFFEBFAF9),
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddNewButton(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      alignment: Alignment.centerRight,
+      child: Material(
+        color: Colors.transparent,
+        child: Padding(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Add New',
+                style: TextStyle(
+                  color: Color(0xFFEBFAF9),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              const SizedBox(width: 24.75),
+              InkWell(
+                onTap: () => _navigateToAddTaskScreen(context),
+                borderRadius: BorderRadius.circular(8),
+                splashColor: Colors.white24,
+                child: const Image(
+                  image: AssetImage('assets/addTaskPlus.png'),
+                  width: 52.5,
+                  height: 52.5,
+                  fit: BoxFit.fill,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
