@@ -410,8 +410,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF313036),
-      body: SafeArea(
-        child: Stack(
+      body: Stack(
           children: [
             AnimatedPositioned(
               duration: const Duration(milliseconds: 600),
@@ -721,7 +720,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
             ),
           ],
         ),
-      ),
+      
     );
   }
 

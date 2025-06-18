@@ -103,8 +103,7 @@ class _TaskScreenState extends State<TaskScreen> {
     final tasksBox = HiveService.getTasksBox();
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
-      body: SafeArea(
-        child: Stack(
+      body: Stack(
           children: [
             Positioned(
               top: 47.48,
@@ -198,8 +197,7 @@ class _TaskScreenState extends State<TaskScreen> {
               )
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildDateSelector(String label) {
