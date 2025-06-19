@@ -5,11 +5,13 @@ import 'package:table_calendar/table_calendar.dart';
 class QuickLinks extends StatefulWidget {
   final bool quickLinksEnabled;
   final ValueChanged<bool> onToggle;
+  final String showDate;
 
   const QuickLinks({
     Key? key,
     required this.quickLinksEnabled,
     required this.onToggle,
+    required this.showDate,
   }) : super(key: key);
 
   @override
@@ -31,7 +33,6 @@ class _QuickLinksState extends State<QuickLinks> {
   void initState() {
     super.initState();
     isEnabled = widget.quickLinksEnabled;
-
     // Show panel after short delay
     Future.delayed(const Duration(milliseconds: 50), () {
       if (!mounted) return;
@@ -40,6 +41,9 @@ class _QuickLinksState extends State<QuickLinks> {
         rightOffset = 0;
       });
     });
+    DateFormat format = DateFormat("d EEE MMM yyyy");
+    DateTime dateTime = format.parse(widget.showDate);
+    _selectedDay = dateTime;
   }
 
   void _toggleQuickLinks() {
@@ -119,7 +123,7 @@ class _QuickLinksState extends State<QuickLinks> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(5),
                         onTap: () => {
-
+                          
                         },
                         child: Text(
                           "Importants",

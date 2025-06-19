@@ -67,16 +67,17 @@ class _TaskScreenState extends State<TaskScreen> {
     return true;
   }
 
-  bool filteredList(String date, List weekDays) {
+  bool filteredList(String date, List weekDays, bool isImportant) {
     if (allDaysFalse(weekDays)) {
       DateFormat inputFormat = DateFormat("d MM yyyy");
       DateTime parsedDate = inputFormat.parse(date);
       String formattedDate = DateFormat('d EEE MMM yyyy').format(parsedDate);
       return showDate == formattedDate;
+    } else if (showDate == "Importants") {
+      return isImportant;
     } else {
       DateTime parsedDate = DateFormat("d EEE MMM yyyy").parse(showDate);
       String formattedDay = DateFormat('EEE').format(parsedDate);
-
       switch (formattedDay) {
         case "Mon":
           return weekDays[0];
@@ -155,7 +156,7 @@ class _TaskScreenState extends State<TaskScreen> {
                       final tasks = box.values.toList();
                       final filteredTasks = tasks
                           .where((task) =>
-                              filteredList(task.date, task.weekDays))
+                              filteredList(task.date, task.weekDays, task.important))
                           .toList();
 
                       if (filteredTasks.isEmpty) {
@@ -194,6 +195,7 @@ class _TaskScreenState extends State<TaskScreen> {
                     quickLinksEnabled = value;
                   });
                 },
+                showDate: showDate,
               )
           ],
         ),
