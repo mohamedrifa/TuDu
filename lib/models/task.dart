@@ -72,4 +72,6 @@ class Task {
   required this.alertAfter,
 });
 
+  get tagname => null;
+
 }

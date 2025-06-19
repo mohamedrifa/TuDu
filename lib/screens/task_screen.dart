@@ -68,13 +68,13 @@ class _TaskScreenState extends State<TaskScreen> {
   }
 
   bool filteredList(String date, List weekDays, bool isImportant) {
-    if (allDaysFalse(weekDays)) {
+    if (showDate == "Importants") {
+      return isImportant;
+    } else if (allDaysFalse(weekDays)) {
       DateFormat inputFormat = DateFormat("d MM yyyy");
       DateTime parsedDate = inputFormat.parse(date);
       String formattedDate = DateFormat('d EEE MMM yyyy').format(parsedDate);
       return showDate == formattedDate;
-    } else if (showDate == "Importants") {
-      return isImportant;
     } else {
       DateTime parsedDate = DateFormat("d EEE MMM yyyy").parse(showDate);
       String formattedDay = DateFormat('EEE').format(parsedDate);
@@ -97,6 +97,42 @@ class _TaskScreenState extends State<TaskScreen> {
           return false;
       }
     }
+  }
+  void dateChange(String value) {
+    if(value == "Importants"){
+      setState(() {
+      showDate = value;
+      selectedDate = "custom";
+    });
+    } else {
+      DateFormat inputFormat = DateFormat("d MM yyyy");
+      DateTime parsedDate = inputFormat.parse(value);
+      String formattedDate = DateFormat('d EEE MMM yyyy').format(parsedDate);
+      // Normalize today and tomorrow to ignore time
+      DateTime today = DateTime.now();
+      DateTime tomorrow = today.add(Duration(days: 1));
+      
+      bool isSameDate(DateTime a, DateTime b) {
+        return a.year == b.year && a.month == b.month && a.day == b.day;
+      }
+      
+      if (isSameDate(parsedDate, today)) {
+        setState(() {
+          selectedDate = "Today";
+          showDate = formattedDate;
+        });
+      } else if (isSameDate(parsedDate, tomorrow)) {
+        setState(() {
+          selectedDate = "Tomorrow";
+          showDate = formattedDate;
+        });
+      } else {
+        setState(() {
+          selectedDate = "custom";
+          showDate = formattedDate;
+        });
+      }     
+    }    
   }
 
   @override
@@ -196,6 +232,7 @@ class _TaskScreenState extends State<TaskScreen> {
                   });
                 },
                 showDate: showDate,
+                onDateChanged: (value) {dateChange(value);},
               )
           ],
         ),

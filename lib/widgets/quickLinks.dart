@@ -2,16 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../database/hive_service.dart';
+import '../models/task.dart';
+
 class QuickLinks extends StatefulWidget {
   final bool quickLinksEnabled;
   final ValueChanged<bool> onToggle;
   final String showDate;
+  final ValueChanged<String> onDateChanged;
 
   const QuickLinks({
     Key? key,
     required this.quickLinksEnabled,
     required this.onToggle,
     required this.showDate,
+    required this.onDateChanged
+
   }) : super(key: key);
 
   @override
@@ -20,6 +26,7 @@ class QuickLinks extends StatefulWidget {
 
 class _QuickLinksState extends State<QuickLinks> {
   late bool isEnabled;
+  late String selectedDate;
 
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -33,6 +40,7 @@ class _QuickLinksState extends State<QuickLinks> {
   void initState() {
     super.initState();
     isEnabled = widget.quickLinksEnabled;
+    selectedDate = widget.showDate;
     // Show panel after short delay
     Future.delayed(const Duration(milliseconds: 50), () {
       if (!mounted) return;
@@ -41,9 +49,11 @@ class _QuickLinksState extends State<QuickLinks> {
         rightOffset = 0;
       });
     });
-    DateFormat format = DateFormat("d EEE MMM yyyy");
-    DateTime dateTime = format.parse(widget.showDate);
-    _selectedDay = dateTime;
+    if(widget.showDate != "Importants") {
+      DateFormat format = DateFormat("d EEE MMM yyyy");
+      DateTime dateTime = format.parse(widget.showDate);
+      _selectedDay = dateTime;
+    } 
   }
 
   void _toggleQuickLinks() {
@@ -52,6 +62,62 @@ class _QuickLinksState extends State<QuickLinks> {
       isEnabled = !isEnabled;
     });
     widget.onToggle(isEnabled);
+  }
+
+  bool isExpanded = false;
+  void setShowDate(String date) {
+    if (!mounted) return;
+    widget.onDateChanged(date);
+    
+    if(!isExpanded) {
+      setState(() {
+        containerColor = Colors.transparent;
+        rightOffset = -312; // Slide out
+      });
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        _toggleQuickLinks();
+      });
+    }
+    
+  }
+  
+  bool allDaysFalse(List weekDays) {
+    for (var day in weekDays) {
+      if (day) return false;
+    }
+    return true;
+  }
+  bool filteredList(String date, List weekDays, bool isImportant) {
+    if (widget.showDate == "Importants") {
+      return isImportant;
+    } else if (allDaysFalse(weekDays)) {
+      DateFormat inputFormat = DateFormat("d MM yyyy");
+      DateTime parsedDate = inputFormat.parse(date);
+      String formattedDate = DateFormat('d EEE MMM yyyy').format(parsedDate);
+      return widget.showDate == formattedDate;
+    } else {
+      DateTime parsedDate = DateFormat("d EEE MMM yyyy").parse(widget.showDate);
+      String formattedDay = DateFormat('EEE').format(parsedDate);
+      switch (formattedDay) {
+        case "Mon":
+          return weekDays[0];
+        case "Tue":
+          return weekDays[1];
+        case "Wed":
+          return weekDays[2];
+        case "Thu":
+          return weekDays[3];
+        case "Fri":
+          return weekDays[4];
+        case "Sat":
+          return weekDays[5];
+        case "Sun":
+          return weekDays[6];
+        default:
+          return false;
+      }
+    }
   }
 
   @override
@@ -66,7 +132,6 @@ class _QuickLinksState extends State<QuickLinks> {
               containerColor = Colors.transparent;
               rightOffset = -312; // Slide out
             });
-
             // Wait for animation to finish
             Future.delayed(const Duration(milliseconds: 300), () {
               if (!mounted) return;
@@ -123,10 +188,10 @@ class _QuickLinksState extends State<QuickLinks> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(5),
                         onTap: () => {
-                          
+                          setShowDate("Importants")
                         },
                         child: Text(
-                          "Importants",
+                          "Important",
                           style: TextStyle(
                             fontFamily: 'Poppins',
                             fontWeight: FontWeight.w600,
@@ -156,6 +221,8 @@ class _QuickLinksState extends State<QuickLinks> {
                         setState(() {
                           _selectedDay = selectedDay;
                           _focusedDay = focusedDay;
+                          String formatted = DateFormat('d MM yyyy').format(_selectedDay ?? selectedDay);
+                          setShowDate(formatted);
                         });
                       },
                       calendarStyle: CalendarStyle(
@@ -302,21 +369,17 @@ class _QuickLinksState extends State<QuickLinks> {
                             color: Color(0xFFFED289),
                           ),
                         ),
+                        onExpansionChanged: (bool expanded) {
+                          setState(() {
+                            isExpanded = expanded;
+                          });
+                        },
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("hello", style: TextStyle(color: Colors.white)),
-                                Text("hai", style: TextStyle(color: Colors.white)),
-                              ],
-                            ),
-                          ),
+                          buildHourTasks()
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10.92,),
+                    const SizedBox(height: 71.92,),
                     Container(
                       width: double.infinity,
                       height: 1,
@@ -531,7 +594,6 @@ class _QuickLinksState extends State<QuickLinks> {
                       ),
                       
                     )
-
                   ],
                 ),
               ),
@@ -541,4 +603,167 @@ class _QuickLinksState extends State<QuickLinks> {
       ],
     );
   }
+
+  Widget buildHourTasks() {
+    final tasksBox = HiveService.getTasksBox();
+    final tasks = tasksBox.values.toList();
+    final filteredTasks = <Task>[];
+    for (var task in tasks) {
+      if (filteredList(task.date, task.weekDays, task.important)) {
+        filteredTasks.add(task);
+      }
+    }
+    // ignore: non_constant_identifier_names
+    Duration Upskill = Duration.zero;
+    Duration Work = Duration.zero;
+    Duration Personal = Duration.zero;
+    Duration Health = Duration.zero;
+    Duration Exercise = Duration.zero;
+    Duration Social = Duration.zero;
+    Duration Spiritual = Duration.zero;
+    Duration Finance = Duration.zero;
+    Duration Others = Duration.zero;
+    Duration totalDuration = Duration.zero;
+    for (var task in filteredTasks) {
+        String fromTimeStr = task.fromTime; // 2:30 PM
+        String toTimeStr = task.toTime;   // 6:15 PM
+        // Convert to DateTime objects (same date, only time matters)
+        DateTime fromTime = DateTime.parse("2025-01-01 $fromTimeStr:00");
+        DateTime toTime = DateTime.parse("2025-01-01 $toTimeStr:00");
+        // Calculate the difference
+        Duration difference = toTime.difference(fromTime);
+        totalDuration += difference;
+        switch(task.tags) {
+          case "Upskill": 
+            Upskill += difference;
+            break;
+          case "Work":
+            Work += difference;
+            break;
+          case "Personal":
+            Personal += difference;
+            break;
+          case "Health":
+            Health += difference;
+            break;
+          case "Exercise":
+            Exercise += difference;
+            break;
+          case "Social":
+            Social += difference;
+            break;
+          case "Spiritual":
+            Spiritual += difference;
+            break;
+          case "Finance":
+            Finance += difference;
+            break;
+          default:
+            Others += difference;
+        }
+    }
+    double hours = totalDuration.inHours + (totalDuration.inMinutes.remainder(60) / 100);
+    String total = hours % 1 == 0 ? hours.toInt().toString() : hours.toStringAsFixed(2);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if(Upskill != Duration.zero) 
+          buildTagHour("Upskill", Upskill),
+        if(Work != Duration.zero) 
+          buildTagHour("Work", Work),
+        if(Personal != Duration.zero) 
+          buildTagHour("Personal", Personal),
+        if(Health != Duration.zero) 
+          buildTagHour("Health", Health),
+        if(Exercise != Duration.zero) 
+          buildTagHour("Exercise", Exercise),
+        if(Social != Duration.zero) 
+          buildTagHour("Social", Social),
+        if(Spiritual != Duration.zero) 
+          buildTagHour("Spiritual", Spiritual),
+        if(Finance != Duration.zero) 
+          buildTagHour("Finance", Finance),
+        if(Others != Duration.zero) 
+          buildTagHour("Others", Others),
+        if(totalDuration != Duration.zero) 
+        Row(
+          children: [
+            Text(
+              "Total",
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w400,
+                fontSize: 18,
+                color: Color(0xFFFED289),
+              ),
+            ),
+            Expanded(child: SizedBox(height: 27)),
+            Text(
+              total,
+              style: TextStyle(
+                fontFamily: 'Quantico',
+                fontWeight: FontWeight.w400,
+                fontSize: 18,
+                color: Color(0xFFFED289),
+              ),
+            ),
+            SizedBox(width: 10),
+            Text(
+              "Hours",
+              style: TextStyle(
+                fontFamily: 'Quantico',
+                fontWeight: FontWeight.w300,
+                fontSize: 18,
+                color: Color(0xFFFED289),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget buildTagHour(String tag, Duration time) {
+    double hours = time.inHours + (time.inMinutes.remainder(60) / 100);
+    String result = hours % 1 == 0 ? hours.toInt().toString() : hours.toStringAsFixed(2);
+    return Column(
+      children: [
+        Row(
+          children: [
+            Text(
+              tag,
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w400,
+                fontSize: 18,
+                color: Color(0xFFEBFAF9),
+              ),
+            ),
+            Expanded(child: SizedBox(height: 27)),
+            Text(
+              result,
+              style: TextStyle(
+                fontFamily: 'Quantico',
+                fontWeight: FontWeight.w400,
+                fontSize: 18,
+                color: Color(0xFFEBFAF9),
+              ),
+            ),
+            SizedBox(width: 10),
+            Text(
+              "Hours",
+              style: TextStyle(
+                fontFamily: 'Quantico',
+                fontWeight: FontWeight.w300,
+                fontSize: 18,
+                color: Color(0xFFEBFAF9),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 8),
+      ],
+    );
+  }
+
 }
