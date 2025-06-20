@@ -16,6 +16,8 @@ dependencies:
   intl: ^0.18.1
   fluttertoast: ^8.2.4
   table_calendar: ^3.0.9
+  file_selector: ^1.0.3
+  
 
 dev_dependencies:
   flutter_test:

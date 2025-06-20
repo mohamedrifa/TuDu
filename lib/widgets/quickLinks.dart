@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:table_calendar/table_calendar.dart';
-
 import '../database/hive_service.dart';
 import '../models/task.dart';
+import 'package:file_selector/file_selector.dart';
 
 class QuickLinks extends StatefulWidget {
   final bool quickLinksEnabled;
@@ -55,6 +58,37 @@ class _QuickLinksState extends State<QuickLinks> {
       _selectedDay = dateTime;
     } 
   }
+
+  Future<void> pickMediumAlert() async {
+  final XFile? file = await openFile();
+
+  if (file != null) {
+    final appDocDir = await getApplicationDocumentsDirectory();
+    final newFile = File('${appDocDir.path}/Medium Alert/${file.name}');
+
+    await File(file.path).copy(newFile.path);
+
+    setState(() {
+      mediumAlertLocation = newFile.path;
+      print('File saved to: $mediumAlertLocation');
+    });
+  }
+}
+  Future<void> pickLoudAlert() async {
+  final XFile? file = await openFile();
+
+  if (file != null) {
+    final appDocDir = await getApplicationDocumentsDirectory();
+    final newFile = File('${appDocDir.path}/Loud Alert/${file.name}');
+
+    await File(file.path).copy(newFile.path);
+
+    setState(() {
+      loudAlertLocation = newFile.path;
+      print('File saved to: $loudAlertLocation');
+    });
+  }
+}
 
   void _toggleQuickLinks() {
     if (!mounted) return;
@@ -463,7 +497,7 @@ class _QuickLinksState extends State<QuickLinks> {
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap:() => {
-
+                                    pickMediumAlert()
                                   },
                                   child: Container(
                                     width: 183.97,
@@ -559,7 +593,7 @@ class _QuickLinksState extends State<QuickLinks> {
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap:() => {
-
+                                    pickLoudAlert()
                                   },
                                   child: Container(
                                     width: 183.97,
