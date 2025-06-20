@@ -3,16 +3,6 @@ import 'screens/onboarding_screen.dart';
 import 'database/hive_service.dart';
 import 'package:flutter/services.dart';
 
-// void main() async {
-//   WidgetsFlutterBinding.ensureInitialized();
-//   await HiveService.init();
-//   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-//   runApp(const MaterialApp(  
-//     home: OnboardingScreen(),
-//     debugShowCheckedModeBanner: false,
-//   ));
-// }
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

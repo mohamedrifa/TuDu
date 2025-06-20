@@ -1,10 +1,13 @@
+// ignore: file_names
 import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../database/hive_service.dart';
+import '../models/settings.dart';
 import '../models/task.dart';
 import 'package:file_selector/file_selector.dart';
 
@@ -36,8 +39,21 @@ class _QuickLinksState extends State<QuickLinks> {
 
   Color containerColor = Colors.transparent;
   double rightOffset = -312; // Start off-screen
-  String mediumAlertLocation = " Efefjwfgguggkfbgfbggf";
-  String loudAlertLocation = " Efefjwfgguggkfbgfbggf";
+  String mediumAlertLocation = "";
+  String loudAlertLocation = "";
+  String mediumAlertName = " Efefjwfgguggkfbgfbggf";
+  String loudAlertName = " Efefjwfgguggkfbgfbggf";
+
+  void toast (String msg) {
+    Fluttertoast.showToast(
+      msg: msg,
+      toastLength: Toast.LENGTH_SHORT, // or Toast.LENGTH_LONG
+      gravity: ToastGravity.CENTER, // or TOP, CENTER
+      backgroundColor: Colors.black,
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
+  }
 
   @override
   void initState() {
@@ -58,37 +74,91 @@ class _QuickLinksState extends State<QuickLinks> {
       _selectedDay = dateTime;
     } 
   }
-
+  bool isAudioFile(String fileName) {
+  final audioExtensions = [
+    '.mp3', '.aac', '.wav', '.flac', '.ogg', '.opus', '.m4a', '.amr', '.3gp', '.caf'
+  ];
+  String lowerFileName = fileName.toLowerCase();
+  return audioExtensions.any((ext) => lowerFileName.endsWith(ext));
+}
   Future<void> pickMediumAlert() async {
-  final XFile? file = await openFile();
-
-  if (file != null) {
-    final appDocDir = await getApplicationDocumentsDirectory();
-    final newFile = File('${appDocDir.path}/Medium Alert/${file.name}');
-
-    await File(file.path).copy(newFile.path);
-
-    setState(() {
-      mediumAlertLocation = newFile.path;
-      print('File saved to: $mediumAlertLocation');
-    });
+    final XFile? file = await openFile();
+    if (file != null) {
+      if (!isAudioFile(file.name)) {
+        toast("Supported Audio formats:\n"
+              ".mp3, .aac, .wav, .flac, .ogg, .opus, .m4a, .amr, .3gp, .caf");
+              return;
+      }
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final mediumAlertDir = Directory('${appDocDir.path}/Medium Alert');
+      mediumAlertName = " ${file.name}";
+      // ✅ Create the directory if it doesn't exist
+      if (!await mediumAlertDir.exists()) {
+        await mediumAlertDir.create(recursive: true);
+      }
+      final newFile = File('${mediumAlertDir.path}/${file.name}');
+      await File(file.path).copy(newFile.path);
+      setState(() {
+        mediumAlertLocation = newFile.path;
+        print('File saved to: $mediumAlertLocation');
+      });
+    }
   }
-}
+
+  void setMediumAlert() {
+    if(mediumAlertName == " Efefjwfgguggkfbgfbggf") {
+      toast("Please Choose a File");
+      return;
+    }
+    var settingsBox = Hive.box<AppSettings>('settings');
+    AppSettings? currentSettings = settingsBox.get('userSettings');
+    final updatedSettings = AppSettings(
+      mediumAlertTone: mediumAlertLocation,
+      loudAlertTone: currentSettings?.loudAlertTone ?? 'default_loud.mp3',
+    );
+    settingsBox.put('userSettings', updatedSettings);
+    toast("Medium Alert Tone is Set");
+  }
+
   Future<void> pickLoudAlert() async {
-  final XFile? file = await openFile();
-
-  if (file != null) {
-    final appDocDir = await getApplicationDocumentsDirectory();
-    final newFile = File('${appDocDir.path}/Loud Alert/${file.name}');
-
-    await File(file.path).copy(newFile.path);
-
-    setState(() {
-      loudAlertLocation = newFile.path;
-      print('File saved to: $loudAlertLocation');
-    });
+    final XFile? file = await openFile();
+    if (file != null) {
+      if (!isAudioFile(file.name)) {
+        toast("Supported Audio formats:\n"
+              ".mp3, .aac, .wav, .flac, .ogg, .opus, .m4a, .amr, .3gp, .caf");
+              return;
+      }
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final loudAlertDir = Directory('${appDocDir.path}/Loud Alert');
+      loudAlertName = " ${file.name}";
+      // ✅ Ensure the "Loud Alert" directory exists
+      if (!await loudAlertDir.exists()) {
+        await loudAlertDir.create(recursive: true);
+      }
+      final newFile = File('${loudAlertDir.path}/${file.name}');
+      await File(file.path).copy(newFile.path);
+      setState(() {
+        loudAlertLocation = newFile.path;
+        print('File saved to: $loudAlertLocation');
+      });
+    }
   }
-}
+
+  void setLoudAlert () {
+    if(loudAlertLocation == " Efefjwfgguggkfbgfbggf") {
+      toast("Please Choose a File");
+      return;
+    }
+    var settingsBox = Hive.box<AppSettings>('settings');
+    AppSettings? currentSettings = settingsBox.get('userSettings');
+    // Fallback for when no settings exist yet
+    final updatedSettings = AppSettings(
+      mediumAlertTone: currentSettings?.mediumAlertTone ?? 'default_loud.mp3',
+      loudAlertTone: loudAlertLocation,
+    );
+    settingsBox.put('userSettings', updatedSettings);
+    toast("Loud Alert Tone is Set");
+  }
 
   void _toggleQuickLinks() {
     if (!mounted) return;
@@ -179,7 +249,6 @@ class _QuickLinksState extends State<QuickLinks> {
             color: containerColor,
           ),
         ),
-
         // Sliding panel
         AnimatedPositioned(
           key: const ValueKey('quickLinksPanel'),
@@ -464,7 +533,7 @@ class _QuickLinksState extends State<QuickLinks> {
                                 color: Color(0xFF268D8C),
                                 child: InkWell(
                                   onTap: () => {
-
+                                    setMediumAlert()
                                   },
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
@@ -512,7 +581,7 @@ class _QuickLinksState extends State<QuickLinks> {
                                     child: Align(
                                       alignment: Alignment.centerLeft,
                                       child: Text(
-                                        mediumAlertLocation,
+                                        mediumAlertName,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontFamily: "Poppins",
@@ -528,9 +597,6 @@ class _QuickLinksState extends State<QuickLinks> {
                               )
                             ],
                           ),
-
-
-
                           const SizedBox(height: 23),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
@@ -560,7 +626,7 @@ class _QuickLinksState extends State<QuickLinks> {
                                 color: Color(0xFF268D8C),
                                 child: InkWell(
                                   onTap: () => {
-
+                                    setLoudAlert()
                                   },
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
@@ -608,7 +674,7 @@ class _QuickLinksState extends State<QuickLinks> {
                                     child: Align(
                                       alignment: Alignment.centerLeft,
                                       child: Text(
-                                        loudAlertLocation,
+                                        loudAlertName,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontFamily: "Poppins",

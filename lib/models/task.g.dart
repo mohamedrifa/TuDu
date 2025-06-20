@@ -33,7 +33,7 @@ class TaskAdapter extends TypeAdapter<Task> {
       afterMediumAlert: fields[13] as bool,
       alertBefore: fields[14] as String,
       alertAfter: fields[15] as String,
-
+      taskCompletionDates: (fields[16] as List?)?.cast<String>() ?? [],
     );
   }
 
@@ -73,7 +73,9 @@ void write(BinaryWriter writer, Task obj) {
     ..writeByte(14)
     ..write(obj.alertBefore)
     ..writeByte(15)
-    ..write(obj.alertAfter);
+    ..write(obj.alertAfter)
+    ..writeByte(16)
+    ..write(obj.taskCompletionDates);
 }
 
 

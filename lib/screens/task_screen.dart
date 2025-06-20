@@ -195,6 +195,17 @@ class _TaskScreenState extends State<TaskScreen> {
                               filteredList(task.date, task.weekDays, task.important))
                           .toList();
 
+  // ✅ Sort by fromTime in ascending order
+                      filteredTasks.sort((a, b) {
+                        final aParts = a.fromTime.split(':').map(int.parse).toList();
+                        final bParts = b.fromTime.split(':').map(int.parse).toList();
+
+                        final aMinutes = aParts[0] * 60 + aParts[1];
+                        final bMinutes = bParts[0] * 60 + bParts[1];
+
+                        return aMinutes.compareTo(bMinutes);
+                      });
+
                       if (filteredTasks.isEmpty) {
                         return _emptyTaskWidget(context);
                       }
@@ -210,6 +221,7 @@ class _TaskScreenState extends State<TaskScreen> {
                                 return TaskCard(
                                   index: index,
                                   id: task.id,
+                                  date: showDate,
                                 );
                               },
                             ),
@@ -312,7 +324,8 @@ class _TaskScreenState extends State<TaskScreen> {
   }
 
   Widget _emptyTaskWidget( BuildContext context) {
-    return Center(
+    return SingleChildScrollView(
+      child:  Center(
       child: Column(
         children: [
           Container(
@@ -462,9 +475,11 @@ class _TaskScreenState extends State<TaskScreen> {
                 ),
               ),
             ],
-          )
+          ),
+          const SizedBox(height: 100),
         ],
       ),
+    ),
     );
   }
 }

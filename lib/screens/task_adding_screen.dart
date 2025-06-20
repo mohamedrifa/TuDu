@@ -156,6 +156,20 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     }
   }
 
+  void clearTimeController () {
+    fromHourController.text = "";
+    fromMinuteController.text = "";
+    toHourController.text = "";
+    toMinuteController.text = "";
+  }
+  int to24Hour(int hour, String period) {
+    if (period == 'A.M') {
+      return hour == 12 ? 0 : hour;
+    } else {
+      return hour == 12 ? 12 : hour + 12;
+    }
+  }
+  
   void submitTask() {
     bool toAlert = false;
     String toastMessage = "";
@@ -179,7 +193,6 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       toast(toastMessage);
       return;
     }
-
     bool fromFlag  =  false;
     bool toFlag  = false;
     int fromHour = int.tryParse(fromHourController.text) ?? 0;
@@ -207,40 +220,50 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       return;
     }
     toastMessage = "From Time should be less than To Time";
-    if(fromHour>toHour) {
-      fromHourController.text = "";
-      fromMinuteController.text = "";
-      toHourController.text = "";
-      toMinuteController.text = "";
-      toast(toastMessage);
-      return;
-    } else if (fromHour == toHour && fromMinute >= toMinute) {
-      fromHourController.text = "";
-      fromMinuteController.text = "";
-      toHourController.text = "";
-      toMinuteController.text = "";
-      toast(toastMessage);
+    fromHour = to24Hour(fromHour, fromperiod);
+    toHour = to24Hour(toHour, toperiod);
+    int fromTotalMinutes = fromHour * 60 + fromMinute;
+    int toTotalMinutes = toHour * 60 + toMinute;
+    if (fromTotalMinutes >= toTotalMinutes) {
+      clearTimeController();
+      toast("From Time should be less than To Time");
       return;
     }
+    final box = Hive.box<Task>('tasks');
+    final conflictingTask = box.values.cast<Task?>().firstWhere(
+      (t) {
+        if (t == null) return false;
+        if (t.id == widget.taskId) return false;
+        bool hasDateConflict = false;
+        if (t.date == "repeat") {
+          for (int i = 0; i < 7; i++) {
+            if (t.weekDays[i] && _selectedDays[i]) {
+              hasDateConflict = true;
+            }
+          }
+        } else if (t.date == date) {
+          hasDateConflict = true;
+        } 
+        if (!hasDateConflict) return false;
+        int existingFrom = int.parse(t.fromTime.split(":")[0]) * 60 +
+                           int.parse(t.fromTime.split(":")[1]);
+        int existingTo = int.parse(t.toTime.split(":")[0]) * 60 +
+                         int.parse(t.toTime.split(":")[1]);
+        return (fromTotalMinutes < existingTo && toTotalMinutes > existingFrom) ||
+               (fromTotalMinutes < existingFrom && toTotalMinutes > existingTo);
+      },
+      orElse: () => null,
+    );
 
-    // Convert to 24-hour format if PM and not 12
-    if (fromperiod == "P.M" && fromHour != 12) {
-      fromHour += 12;
+    if (conflictingTask != null) {
+      toast("Another task is already scheduled in this time range. Please adjust the timing.");
+      return;
     }
-    if (toperiod == "P.M" && toHour != 12) {
-      toHour += 12;
-    }
-    // Handle midnight edge case (12 A.M.)
-    if (fromperiod == "A.M" && fromHour == 12) {
-      fromHour = 0;
-    }
-    if (toperiod == "A.M" && toHour == 12) {
-      toHour = 0;
-    }
+    
     String fromTime = "${fromHour.toString().padLeft(2, '0')}:${fromMinuteController.text.padLeft(2, '0')}";
     String toTime = "${toHour.toString().padLeft(2, '0')}:${toMinuteController.text.padLeft(2, '0')}";
-
-    final box = Hive.box<Task>('tasks');
+    
+    
     final task = Task(
       id: widget.taskId,
       title: taskName,
@@ -258,6 +281,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       afterMediumAlert: isAfterMediumAlert,
       alertBefore: selectedBefore,
       alertAfter: selectedAfter,
+      taskCompletionDates: [],
     );
     box.put(widget.taskId, task); 
     toast(widget.isEdit? "Task Edited" : "Task Added");
