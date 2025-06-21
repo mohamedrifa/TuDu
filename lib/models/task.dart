@@ -56,6 +56,9 @@ class Task {
   @HiveField(16)
   List taskCompletionDates;
 
+  @HiveField(17)
+  String taskScheduleddate;
+
   Task({
   required this.id,
   required this.title,
@@ -73,7 +76,8 @@ class Task {
   required this.afterMediumAlert,
   required this.alertBefore,
   required this.alertAfter,
-  required this.taskCompletionDates
+  required this.taskCompletionDates,
+  required this.taskScheduleddate
 });
 
   get tagname => null;

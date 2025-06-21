@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../widgets/task_card.dart';
 import '../models/task.dart';
@@ -67,7 +68,18 @@ class _TaskScreenState extends State<TaskScreen> {
     return true;
   }
 
-  bool filteredList(String date, List weekDays, bool isImportant) {
+  bool filteredList(String date, List weekDays, bool isImportant, String taskScheduleddate) {
+    if (taskScheduleddate.isNotEmpty == true) {
+      DateFormat scheduledFormat = DateFormat("d MM yyyy");
+      DateTime scheduledDate = scheduledFormat.parse(taskScheduleddate);
+      if (showDate != "Importants") {
+        DateFormat showFormat = DateFormat('d EEE MMM yyyy');
+        DateTime displayDate = showFormat.parse(showDate);
+        if (scheduledDate.isAfter(displayDate)) {
+          return false;
+        }
+      }
+    }
     if (showDate == "Importants") {
       return isImportant;
     } else if (allDaysFalse(weekDays)) {
@@ -98,6 +110,7 @@ class _TaskScreenState extends State<TaskScreen> {
       }
     }
   }
+
   void dateChange(String value) {
     if(value == "Importants"){
       setState(() {
@@ -138,7 +151,13 @@ class _TaskScreenState extends State<TaskScreen> {
   @override
   Widget build(BuildContext context) {
     final tasksBox = HiveService.getTasksBox();
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: () async {
+        // Exit the app
+        SystemNavigator.pop();
+        return false; // Prevent default back navigation
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
       body: Stack(
           children: [
@@ -192,10 +211,8 @@ class _TaskScreenState extends State<TaskScreen> {
                       final tasks = box.values.toList();
                       final filteredTasks = tasks
                           .where((task) =>
-                              filteredList(task.date, task.weekDays, task.important))
+                              filteredList(task.date, task.weekDays, task.important, task.taskScheduleddate))
                           .toList();
-
-  // ✅ Sort by fromTime in ascending order
                       filteredTasks.sort((a, b) {
                         final aParts = a.fromTime.split(':').map(int.parse).toList();
                         final bParts = b.fromTime.split(':').map(int.parse).toList();
@@ -248,7 +265,8 @@ class _TaskScreenState extends State<TaskScreen> {
               )
           ],
         ),
-      );
+      )
+    );
   }
 
   Widget _buildDateSelector(String label) {

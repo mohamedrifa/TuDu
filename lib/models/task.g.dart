@@ -34,6 +34,7 @@ class TaskAdapter extends TypeAdapter<Task> {
       alertBefore: fields[14] as String,
       alertAfter: fields[15] as String,
       taskCompletionDates: (fields[16] as List?)?.cast<String>() ?? [],
+      taskScheduleddate: (fields[17] is String && fields[17] != null) ? fields[17] as String : '',
     );
   }
 
@@ -41,7 +42,7 @@ class TaskAdapter extends TypeAdapter<Task> {
   @override
 void write(BinaryWriter writer, Task obj) {
   writer
-    ..writeByte(16) // Total number of fields
+    ..writeByte(17) // Total number of fields
     ..writeByte(0)
     ..write(obj.id)
     ..writeByte(1)
@@ -75,7 +76,9 @@ void write(BinaryWriter writer, Task obj) {
     ..writeByte(15)
     ..write(obj.alertAfter)
     ..writeByte(16)
-    ..write(obj.taskCompletionDates);
+    ..write(obj.taskCompletionDates)
+    ..writeByte(17)
+    ..write(obj.taskScheduleddate);
 }
 
 

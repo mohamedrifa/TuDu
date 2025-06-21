@@ -230,40 +230,48 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       return;
     }
     final box = Hive.box<Task>('tasks');
+    String anotherTask = "";
+    String existingFromTime = "";
+    String existingToTime = "";
     final conflictingTask = box.values.cast<Task?>().firstWhere(
       (t) {
-        if (t == null) return false;
-        if (t.id == widget.taskId) return false;
+        if (t == null || t.id == widget.taskId) return false;
         bool hasDateConflict = false;
         if (t.date == "repeat") {
           for (int i = 0; i < 7; i++) {
             if (t.weekDays[i] && _selectedDays[i]) {
               hasDateConflict = true;
+              break;
             }
           }
-        } else if (t.date == date) {
+        } else if ((t.date == date)) {
           hasDateConflict = true;
-        } 
+        }
         if (!hasDateConflict) return false;
-        int existingFrom = int.parse(t.fromTime.split(":")[0]) * 60 +
-                           int.parse(t.fromTime.split(":")[1]);
-        int existingTo = int.parse(t.toTime.split(":")[0]) * 60 +
-                         int.parse(t.toTime.split(":")[1]);
-        return (fromTotalMinutes < existingTo && toTotalMinutes > existingFrom) ||
-               (fromTotalMinutes < existingFrom && toTotalMinutes > existingTo);
+        final fromParts = t.fromTime.split(":").map(int.parse).toList();
+        final toParts = t.toTime.split(":").map(int.parse).toList();
+        final existingFrom = fromParts[0] * 60 + fromParts[1];
+        final existingTo = toParts[0] * 60 + toParts[1];
+        anotherTask = t.title;
+        String formatTime(int hour, int minute) {
+          final suffix = hour >= 12 ? "P.M" : "A.M";
+          final formattedHour = hour % 12 == 0 ? 12 : hour % 12;
+          return "$formattedHour:$minute $suffix";
+        }
+        existingFromTime = formatTime(fromParts[0], fromParts[1]);
+        existingToTime = formatTime(toParts[0], toParts[1]);
+        return fromTotalMinutes < existingTo && toTotalMinutes > existingFrom;
+
       },
       orElse: () => null,
     );
-
     if (conflictingTask != null) {
-      toast("Another task is already scheduled in this time range. Please adjust the timing.");
+      toast("$anotherTask is scheduled From: $existingFromTime To: $existingToTime time range. Please adjust the timing.");
       return;
     }
-    
     String fromTime = "${fromHour.toString().padLeft(2, '0')}:${fromMinuteController.text.padLeft(2, '0')}";
     String toTime = "${toHour.toString().padLeft(2, '0')}:${toMinuteController.text.padLeft(2, '0')}";
-    
-    
+
     final task = Task(
       id: widget.taskId,
       title: taskName,
@@ -282,6 +290,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       alertBefore: selectedBefore,
       alertAfter: selectedAfter,
       taskCompletionDates: [],
+      taskScheduleddate: DateFormat('d MM yyyy').format(DateTime.now()),
     );
     box.put(widget.taskId, task); 
     toast(widget.isEdit? "Task Edited" : "Task Added");
@@ -876,7 +885,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                     onChanged: (value) {
                       int val = int.tryParse(value) ?? 0;
                       if (val > 1 && val < 10) {
-                        value = "0$value";
+                        if(value.length<2){value = "0$value";}
                         TextEditingController targetController =
                             label == "From" ? fromHourController : toHourController;
                         targetController.text = value;
