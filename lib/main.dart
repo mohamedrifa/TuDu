@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'screens/onboarding_screen.dart';
 import 'database/hive_service.dart';
-import 'package:flutter/services.dart';
+import 'notification_service/notification_service.dart'; // 👈 import notification service
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await HiveService.init();
+  await NotificationService().init(); // 👈 initialize notification service
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(MyApp());
@@ -22,7 +24,6 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
 class FullScreenPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -41,4 +42,4 @@ class FullScreenPage extends StatelessWidget {
       ),
     );
   }
-}
+} 

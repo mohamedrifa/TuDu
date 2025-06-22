@@ -7,6 +7,8 @@ import '../database/hive_service.dart';
 import 'task_adding_screen.dart';
 import 'package:intl/intl.dart';
 import '../widgets/quickLinks.dart';
+import '../notification_service/notification_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // ignore: must_be_immutable
 class TaskScreen extends StatefulWidget {
@@ -53,6 +55,28 @@ class _TaskScreenState extends State<TaskScreen> {
       }
     });
   }
+
+  
+@override
+void initState() {
+  super.initState();
+  _requestNotificationPermission();
+}
+
+Future<void> _requestNotificationPermission() async {
+  if (await Permission.notification.isDenied) {
+    await Permission.notification.request();
+  }
+}
+void _sendTestNotification() async {
+  if (await Permission.notification.isGranted) {
+    NotificationService().showNotification();
+  } else {
+     print("Notification permission not granted.");
+    _requestNotificationPermission();
+  }
+}
+
   
   bool quickLinksEnabled = false;
   void quickLinkWidget() {
@@ -204,6 +228,16 @@ class _TaskScreenState extends State<TaskScreen> {
                     ),
                   ),
                 ),
+                ElevatedButton.icon(
+                icon: Icon(Icons.notifications),
+                label: Text("Trigger Notification"),
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                onPressed: () {
+                  _sendTestNotification();
+                },
+              ),
                 Expanded(
                   child: ValueListenableBuilder<Box<Task>>(
                     valueListenable: tasksBox.listenable(),

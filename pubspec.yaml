@@ -17,6 +17,8 @@ dependencies:
   fluttertoast: ^8.2.4
   table_calendar: ^3.0.9
   file_selector: ^1.0.3
+  flutter_local_notifications: ^19.2.1
+  permission_handler: ^11.3.0
   
 
 dev_dependencies:
