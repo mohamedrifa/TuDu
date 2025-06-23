@@ -7,7 +7,6 @@ import '../database/hive_service.dart';
 import 'task_adding_screen.dart';
 import 'package:intl/intl.dart';
 import '../widgets/quickLinks.dart';
-import '../notification_service/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 // ignore: must_be_immutable
@@ -70,7 +69,7 @@ Future<void> _requestNotificationPermission() async {
 }
 void _sendTestNotification() async {
   if (await Permission.notification.isGranted) {
-    NotificationService().showNotification();
+    // NotificationService().showNotification();
   } else {
      print("Notification permission not granted.");
     _requestNotificationPermission();

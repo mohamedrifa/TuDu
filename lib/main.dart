@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'screens/onboarding_screen.dart';
 import 'database/hive_service.dart';
 import 'notification_service/notification_service.dart'; // 👈 import notification service
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  final appDocumentDir = await getApplicationDocumentsDirectory();
+  await Hive.initFlutter(appDocumentDir.path);
   await HiveService.init();
-  await NotificationService().init(); // 👈 initialize notification service
+  await NotificationService().init();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(MyApp());

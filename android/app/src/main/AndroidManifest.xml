@@ -3,6 +3,7 @@
 
     <!-- ✅ Move the permission here, right inside <manifest> -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
 
     <application
         android:label="tudu"
