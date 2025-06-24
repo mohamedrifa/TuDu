@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import '../notification_service/notification_service.dart';
 import '../widgets/task_card.dart';
 import '../models/task.dart';
 import '../database/hive_service.dart';
@@ -69,7 +70,38 @@ Future<void> _requestNotificationPermission() async {
 }
 void _sendTestNotification() async {
   if (await Permission.notification.isGranted) {
-    // NotificationService().showNotification();
+    final task = Task(
+      id: 'task_1',
+      title: 'Test Task',
+      fromTime: '23:34',
+      toTime: '22:30',
+      weekDays: [],
+      date: '',
+      tags: '',
+      important: false,
+      location: '',
+      subTask: '',
+      beforeLoudAlert: false,
+      beforeMediumAlert: false,
+      afterLoudAlert: false,
+      afterMediumAlert: false,
+      alertBefore: '',
+      alertAfter: '',
+      taskCompletionDates: [],
+      taskScheduleddate: '',
+    );
+
+    try {
+      await NotificationService().scheduleNotification(
+        title: 'title',
+        body: 'body',
+        hour: 23,
+        minute: 0
+      );
+    } catch (e) {
+      print('Error scheduling task: $e');
+    }
+
   } else {
      print("Notification permission not granted.");
     _requestNotificationPermission();

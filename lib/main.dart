@@ -11,7 +11,7 @@ void main() async {
   final appDocumentDir = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocumentDir.path);
   await HiveService.init();
-  await NotificationService().init();
+  await NotificationService().initNotification();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(MyApp());

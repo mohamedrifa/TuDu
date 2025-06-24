@@ -1,108 +1,91 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import '../models/task.dart';
-import 'package:hive/hive.dart';
 
 class NotificationService {
-  static final NotificationService _instance = NotificationService._internal();
-  factory NotificationService() => _instance;
-  NotificationService._internal();
+  final notificationPlugin = FlutterLocalNotificationsPlugin();
 
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  final bool _isInitialized = false;
 
-  Future<void> init() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: androidSettings);
-    // Request permissions only on iOS
-    await _flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
+  bool get isInitialized => _isInitialized;
 
-
+  // Initialize
+  Future<void> initNotification() async {
+    if(_isInitialized) return;
+    
     tz.initializeTimeZones();
+    String currentTimeZone = await FlutterTimezone.getLocalTimezone();
+    if(currentTimeZone == "Asia/Calcutta") { currentTimeZone = "Asia/Kolkata";}
+    tz.setLocalLocation(tz.getLocation(currentTimeZone));
 
-    await _flutterLocalNotificationsPlugin.initialize(
-      settings,
-      onDidReceiveNotificationResponse: onNotificationResponse,
+    const AndroidInitializationSettings initSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+    
+    const DarwinInitializationSettings initSettingsIOS = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
     );
+
+    const InitializationSettings initSettings = InitializationSettings(
+      android: initSettingsAndroid,
+      iOS: initSettingsIOS,
+    );
+
+    await notificationPlugin.initialize(initSettings);
   }
 
-  Future<void> scheduleTaskNotification(Task task) async {
-    final timeParts = task.fromTime.split(':');
-    final hour = int.parse(timeParts[0]);
-    final minute = int.parse(timeParts[1]);
-
-    final now = DateTime.now();
-    final scheduled = DateTime(now.year, now.month, now.day, hour, minute);
-
-    final tzScheduled = tz.TZDateTime.from(scheduled, tz.local);
-
-    final details = NotificationDetails(
+  // Notification Details
+  NotificationDetails notificationDetails() {
+    return const NotificationDetails(
       android: AndroidNotificationDetails(
-        'task_channel',
-        'Task Channel',
+        'daily_channel_id', 
+        'Daily notifications',
+        channelDescription: 'Daily Notification Channel',
         importance: Importance.max,
         priority: Priority.high,
-        actions: [
-          AndroidNotificationAction('go', 'Go'),
-          AndroidNotificationAction('later', 'Later'),
-        ],
       ),
-    );
-
-    await _flutterLocalNotificationsPlugin.zonedSchedule(
-      task.hashCode,
-      task.title,
-      'It\'s time for: ${task.title}',
-      tzScheduled,
-      details,
-      payload: task.id,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      iOS: DarwinNotificationDetails()
     );
   }
 
-  Future<void> onNotificationResponse(NotificationResponse response) async {
-    final taskId = response.payload;
-    if (taskId == null) return;
+  Future<void> scheduleNotification({
+    int id = 1,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+  }) async {
+    final now = tz.TZDateTime.now(tz.local);
 
-    final box = await Hive.openBox<Task>('tasks');
-    final task = box.values.firstWhere((t) => t.id == taskId, orElse: () => Task(
-      id: '',
-      title: '',
-      date: '',
-      weekDays: [],
-      fromTime: '',
-      toTime: '',
-      tags: '',
-      important: false,
-      location: '',
-      subTask: '',
-      beforeLoudAlert: false,
-      beforeMediumAlert: false,
-      afterLoudAlert: false,
-      afterMediumAlert: false,
-      alertBefore: '',
-      alertAfter: '',
-      taskCompletionDates: [],
-      taskScheduleddate: '',
-    ));
+    var scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
 
-    // if (response.actionId == 'go') {
-    //   final now = DateFormat('d EEE MM yyyy').format(DateTime.now());
-    //   task.taskCompletionDates.add(now);
-    //   await task.save();
-    // } else if (response.actionId == 'later') {
-    //   final later = DateTime.now().add(Duration(minutes: 10));
-    //   task.fromTime = '${later.hour.toString().padLeft(2, '0')}:${later.minute.toString().padLeft(2, '0')}';
-    //   await task.save();
-    //   await scheduleTaskNotification(task);
-    // }
+    await notificationPlugin.zonedSchedule(
+      id, 
+      title, 
+      body, 
+      scheduledDate, 
+      const NotificationDetails(),
+
+      // IOS Specific
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+
+      // Android Specific
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+
+      // Make Notification repeat Daily
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+  
+  Future<void> cancelAllNotification() async {
+    await notificationPlugin.cancelAll();
   }
 }

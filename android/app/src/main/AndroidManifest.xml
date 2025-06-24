@@ -3,7 +3,7 @@
 
     <!-- ✅ Move the permission here, right inside <manifest> -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />    
 
     <application
         android:label="tudu"
