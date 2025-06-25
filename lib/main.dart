@@ -1,21 +1,25 @@
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'screens/onboarding_screen.dart';
 import 'database/hive_service.dart';
-import 'notification_service/notification_service.dart'; // 👈 import notification service
+import 'notification_service/notification_service.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final appDocumentDir = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocumentDir.path);
   await HiveService.init();
-  await NotificationService().initNotification();
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
+  await AndroidAlarmManager.initialize();
+  await NotificationService().initNotification(); 
+
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(MyApp());
 }
+
 
 class MyApp extends StatelessWidget {
   @override

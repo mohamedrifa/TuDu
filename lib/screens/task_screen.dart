@@ -70,38 +70,11 @@ Future<void> _requestNotificationPermission() async {
 }
 void _sendTestNotification() async {
   if (await Permission.notification.isGranted) {
-    final task = Task(
-      id: 'task_1',
-      title: 'Test Task',
-      fromTime: '23:34',
-      toTime: '22:30',
-      weekDays: [],
-      date: '',
-      tags: '',
-      important: false,
-      location: '',
-      subTask: '',
-      beforeLoudAlert: false,
-      beforeMediumAlert: false,
-      afterLoudAlert: false,
-      afterMediumAlert: false,
-      alertBefore: '',
-      alertAfter: '',
-      taskCompletionDates: [],
-      taskScheduleddate: '',
-    );
-
-    try {
-      await NotificationService().scheduleNotification(
-        title: 'title',
-        body: 'body',
-        hour: 23,
-        minute: 0
-      );
-    } catch (e) {
-      print('Error scheduling task: $e');
-    }
-
+    NotificationService.showNotification();
+    final now = DateTime.now();
+    final scheduledTime = now.add(const Duration(minutes: 1));
+    await NotificationService().scheduleAlarmAt(scheduledTime);
+    print("passed");
   } else {
      print("Notification permission not granted.");
     _requestNotificationPermission();
