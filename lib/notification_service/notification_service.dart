@@ -2,6 +2,7 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive/hive.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/settings.dart';
 
@@ -67,18 +68,35 @@ class NotificationService {
 
 // ✅ Top-level function — required for AndroidAlarmManager
 @pragma('vm:entry-point')
-void alarmCallback() {
+void alarmCallback() async {
   WidgetsFlutterBinding.ensureInitialized();
   print("✅ alarmCallback() triggered");
-  var settingsBox = Hive.box<AppSettings>('settings');
+
+  // Initialize Hive if not already initialized
+  final appDocDir = await getApplicationDocumentsDirectory();
+  Hive.init(appDocDir.path);
+
+  // Register adapter if not already registered
+  if (!Hive.isAdapterRegistered(SettingsAdapter().typeId)) {
+    Hive.registerAdapter(SettingsAdapter());
+  }
+
+  // Open the box
+  var settingsBox = await Hive.openBox<AppSettings>('settings');
   AppSettings? currentSettings = settingsBox.get('userSettings');
-  if(currentSettings != null && !currentSettings.batteryUnrestricted) {
+  print("✅ alarm outside");
+  print(currentSettings?.batteryUnrestricted);
+  if (currentSettings == null || !currentSettings.batteryUnrestricted) {
+    print("✅ alarm inside");
+    print(currentSettings?.batteryUnrestricted);
     final updatedSettings = AppSettings(
-      mediumAlertTone: currentSettings.mediumAlertTone,
-      loudAlertTone: currentSettings.loudAlertTone,
+      mediumAlertTone: currentSettings == null? "": currentSettings.mediumAlertTone,
+      loudAlertTone: currentSettings == null? "":currentSettings.loudAlertTone,
       batteryUnrestricted: true,
     );
-    settingsBox.put('userSettings', updatedSettings);
+    await settingsBox.put('userSettings', updatedSettings);
   }
+
   NotificationService.showNotification();
 }
+

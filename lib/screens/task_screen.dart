@@ -81,7 +81,8 @@ Future<void> _requestNotificationPermission() async {
   }
   
   AppSettings? currentSettings = settingsBox.get('userSettings');
-  if(currentSettings == null || currentSettings.batteryUnrestricted) {
+  print(currentSettings?.batteryUnrestricted);
+  if(currentSettings == null || !currentSettings.batteryUnrestricted) {
     showBatteryDialog(context);
   }
 }
@@ -562,52 +563,83 @@ void _sendTestNotification() async {
   final currentSettings = settingsBox.get('userSettings');
 
   showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      backgroundColor: Colors.grey[900],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      title: const Text(
-        'Battery Optimization',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      content: const Text(
-        'To ensure tasks and reminders work correctly in the background, please set battery usage to "Unrestricted" in the next screen.',
-        style: TextStyle(color: Colors.white70),
-      ),
-      actions: [
-        TextButton(
-          child: const Text(
-            'Cancel',
-            style: TextStyle(color: Colors.grey),
+  context: context,
+  builder: (ctx) {
+    bool doNotShowAgain = false;
+
+    return StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        title: const Text(
+          'Battery Optimization',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
-          onPressed: () {
-            final updatedSettings = AppSettings(
-              mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
-              loudAlertTone: currentSettings?.loudAlertTone ?? '',
-              batteryUnrestricted: false,
-            );
-            settingsBox.put('userSettings', updatedSettings);
-            Navigator.of(ctx).pop();
-          },
         ),
-        TextButton(
-          child: const Text(
-            'Open Settings',
-            style: TextStyle(color: Colors.blueAccent),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'To ensure tasks and reminders work correctly in the background, please set battery usage to "Unrestricted" in the next screen.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Checkbox(
+                  value: doNotShowAgain,
+                  onChanged: (value) {
+                    setState(() {
+                      doNotShowAgain = value ?? false;
+                    });
+                  },
+                  checkColor: Colors.white,
+                  activeColor: Colors.blueAccent,
+                ),
+                const Expanded(
+                  child: Text(
+                    'Don\'t show this again',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey),
+            ),
+            onPressed: () {
+              final updatedSettings = AppSettings(
+                mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
+                loudAlertTone: currentSettings?.loudAlertTone ?? '',
+                batteryUnrestricted: doNotShowAgain,
+              );
+              settingsBox.put('userSettings', updatedSettings);
+              Navigator.of(ctx).pop();
+            },
           ),
-          onPressed: () {
-            Navigator.of(ctx).pop();
-            openBatterySettings();
-          },
-        ),
-      ],
-    ),
-  );
+          TextButton(
+            child: const Text(
+              'Open Settings',
+              style: TextStyle(color: Colors.blueAccent),
+            ),
+            onPressed: () {
+              // You can also store doNotShowAgain here if needed
+              Navigator.of(ctx).pop();
+              openBatterySettings();
+            },
+          ),
+        ],
+      ),
+    );
+  },
+);
 }
-
-
 
 }
