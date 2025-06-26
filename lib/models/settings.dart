@@ -10,9 +10,13 @@ class AppSettings {
    @HiveField(1)
   String loudAlertTone;
 
+  @HiveField(2)
+  bool batteryUnrestricted;
+
   AppSettings({
   required this.mediumAlertTone,
-  required this.loudAlertTone
+  required this.loudAlertTone,
+  required this.batteryUnrestricted
 });
 
   get tagname => null;

@@ -19,6 +19,7 @@ class SettingsAdapter extends TypeAdapter<AppSettings>  {
     return AppSettings(
       mediumAlertTone: fields[0] as String,
       loudAlertTone: fields[1] as String,
+      batteryUnrestricted: fields[2] as bool,
     );
   }
 
@@ -26,11 +27,13 @@ class SettingsAdapter extends TypeAdapter<AppSettings>  {
   @override
 void write(BinaryWriter writer, AppSettings obj) {
   writer
-    ..writeByte(2) // Total number of fields
+    ..writeByte(3) // Total number of fields
     ..writeByte(0)
     ..write(obj.mediumAlertTone)
     ..writeByte(1)
-    ..write(obj.loudAlertTone);
+    ..write(obj.loudAlertTone)
+    ..writeByte(2)
+    ..write(obj.batteryUnrestricted);
 }
 
 

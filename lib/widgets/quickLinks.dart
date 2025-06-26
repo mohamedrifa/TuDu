@@ -114,7 +114,8 @@ class _QuickLinksState extends State<QuickLinks> {
     AppSettings? currentSettings = settingsBox.get('userSettings');
     final updatedSettings = AppSettings(
       mediumAlertTone: mediumAlertLocation,
-      loudAlertTone: currentSettings?.loudAlertTone ?? 'default_loud.mp3',
+      loudAlertTone: currentSettings?.loudAlertTone ?? '',
+      batteryUnrestricted: currentSettings!.batteryUnrestricted,
     );
     settingsBox.put('userSettings', updatedSettings);
     toast("Medium Alert Tone is Set");
@@ -153,8 +154,9 @@ class _QuickLinksState extends State<QuickLinks> {
     AppSettings? currentSettings = settingsBox.get('userSettings');
     // Fallback for when no settings exist yet
     final updatedSettings = AppSettings(
-      mediumAlertTone: currentSettings?.mediumAlertTone ?? 'default_loud.mp3',
+      mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
       loudAlertTone: loudAlertLocation,
+      batteryUnrestricted: currentSettings!.batteryUnrestricted,
     );
     settingsBox.put('userSettings', updatedSettings);
     toast("Loud Alert Tone is Set");

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:tudu/models/settings.dart';
 import '../notification_service/notification_service.dart';
 import '../widgets/task_card.dart';
 import '../models/task.dart';
@@ -9,6 +10,9 @@ import 'task_adding_screen.dart';
 import 'package:intl/intl.dart';
 import '../widgets/quickLinks.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
+import 'dart:io';
 
 // ignore: must_be_immutable
 class TaskScreen extends StatefulWidget {
@@ -21,7 +25,7 @@ class TaskScreen extends StatefulWidget {
 class _TaskScreenState extends State<TaskScreen> {
   DateTime now = DateTime.now();
   String addTaskId = DateFormat('yyyyMMddhhmmss').format(DateTime.now());
-
+  var settingsBox = Hive.box<AppSettings>('settings');
   String selectedDate = "Today";
   String showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now());
 
@@ -62,12 +66,26 @@ void initState() {
   super.initState();
   _requestNotificationPermission();
 }
-
+void openBatterySettings() {
+  final intent = AndroidIntent(
+    action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
+    data: 'package:com.example.tudu', // Replace with your package
+    flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+  );
+  intent.launch();
+}
 Future<void> _requestNotificationPermission() async {
+  if (!Platform.isAndroid) return;
   if (await Permission.notification.isDenied) {
     await Permission.notification.request();
   }
+  
+  AppSettings? currentSettings = settingsBox.get('userSettings');
+  if(currentSettings == null || currentSettings.batteryUnrestricted) {
+    showBatteryDialog(context);
+  }
 }
+
 void _sendTestNotification() async {
   if (await Permission.notification.isGranted) {
     NotificationService.showNotification();
@@ -538,4 +556,58 @@ void _sendTestNotification() async {
     ),
     );
   }
+
+ void showBatteryDialog(BuildContext context) {
+  final settingsBox = Hive.box<AppSettings>('settings'); // Access here once
+  final currentSettings = settingsBox.get('userSettings');
+
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: Colors.grey[900],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      title: const Text(
+        'Battery Optimization',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      content: const Text(
+        'To ensure tasks and reminders work correctly in the background, please set battery usage to "Unrestricted" in the next screen.',
+        style: TextStyle(color: Colors.white70),
+      ),
+      actions: [
+        TextButton(
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: Colors.grey),
+          ),
+          onPressed: () {
+            final updatedSettings = AppSettings(
+              mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
+              loudAlertTone: currentSettings?.loudAlertTone ?? '',
+              batteryUnrestricted: false,
+            );
+            settingsBox.put('userSettings', updatedSettings);
+            Navigator.of(ctx).pop();
+          },
+        ),
+        TextButton(
+          child: const Text(
+            'Open Settings',
+            style: TextStyle(color: Colors.blueAccent),
+          ),
+          onPressed: () {
+            Navigator.of(ctx).pop();
+            openBatterySettings();
+          },
+        ),
+      ],
+    ),
+  );
+}
+
+
+
 }

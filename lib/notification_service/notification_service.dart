@@ -1,6 +1,9 @@
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hive/hive.dart';
+
+import '../models/settings.dart';
 
 class NotificationService {
   NotificationService._privateConstructor();
@@ -36,8 +39,6 @@ class NotificationService {
     iOS: DarwinNotificationDetails(),
   );
 }
-
-
   Future<void> scheduleAlarmAt(DateTime dateTime) async {
     final int alarmId = 1;
     Duration delay = dateTime.difference(DateTime.now());
@@ -69,5 +70,15 @@ class NotificationService {
 void alarmCallback() {
   WidgetsFlutterBinding.ensureInitialized();
   print("✅ alarmCallback() triggered");
+  var settingsBox = Hive.box<AppSettings>('settings');
+  AppSettings? currentSettings = settingsBox.get('userSettings');
+  if(currentSettings != null && !currentSettings.batteryUnrestricted) {
+    final updatedSettings = AppSettings(
+      mediumAlertTone: currentSettings.mediumAlertTone,
+      loudAlertTone: currentSettings.loudAlertTone,
+      batteryUnrestricted: true,
+    );
+    settingsBox.put('userSettings', updatedSettings);
+  }
   NotificationService.showNotification();
 }
