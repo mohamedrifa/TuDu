@@ -259,8 +259,7 @@ void _sendTestNotification() async {
                 ),
                 onPressed: () {
                   _sendTestNotification();
-                },
-              ),
+                },),
                 Expanded(
                   child: ValueListenableBuilder<Box<Task>>(
                     valueListenable: tasksBox.listenable(),

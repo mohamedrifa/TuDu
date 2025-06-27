@@ -96,7 +96,7 @@ void alarmCallback() async {
     );
     await settingsBox.put('userSettings', updatedSettings);
   }
-
+  
   NotificationService.showNotification();
 }
 

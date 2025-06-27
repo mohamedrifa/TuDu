@@ -19,7 +19,7 @@ class SettingsAdapter extends TypeAdapter<AppSettings>  {
     return AppSettings(
       mediumAlertTone: fields[0] as String,
       loudAlertTone: fields[1] as String,
-      batteryUnrestricted: fields[2] as bool,
+      batteryUnrestricted: fields[2] as bool? ?? false,
     );
   }
 
