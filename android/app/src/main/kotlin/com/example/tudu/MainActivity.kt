@@ -23,7 +23,11 @@ class MainActivity : FlutterActivity() {
             if (call.method == "scheduleAlarm") {
                 scheduleAlarm()
                 result.success(null)
-            } else {
+            } else if(call.method == "close") { 
+                finishAndRemoveTask()
+                result.success(null)
+            }
+            else {
                 result.notImplemented()
             }
         }
