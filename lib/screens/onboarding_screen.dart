@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'task_screen.dart'; // Replace with your actual home screen
 
@@ -25,7 +26,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   double darkRight = 15 - 122.77;
   double darkTop = 62 - 141.1;
   
-  
   @override
   void initState() {
     super.initState();
@@ -33,7 +33,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     Future.delayed(const Duration(seconds: 3), () {
       setState(() {
         leftOffset = -403;
-        
         greenWidth = 337.6;
         greenHeight = 41.82;
         greenLeft = 56 - 187.36;
@@ -64,13 +63,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   }
 
+  void GestDetect () {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
+  }
+  
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    return Scaffold(
-      backgroundColor: const Color(0xFF2C9C94),
-      body: Stack(
+    return GestureDetector(
+        onTap: () => GestDetect(),
+        child: Scaffold(
+        backgroundColor: const Color(0xFF2C9C94),
+        body: Stack(
         children: [
           // Center content
           AnimatedPositioned(
@@ -192,7 +197,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
         ],
-      ),
+      ),),
     );
   }
 }

@@ -439,9 +439,15 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       });
     }
   }
+  
+  void GestDetect () {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
+  }
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+        onTap: () => GestDetect(),
+        child: Scaffold(
       backgroundColor: const Color(0xFF313036),
       body: Stack(
           children: [
@@ -753,7 +759,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
             ),
           ],
         ),
-      
+      ),
     );
   }
 

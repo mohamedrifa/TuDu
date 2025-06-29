@@ -76,23 +76,25 @@ void openBatterySettings() {
 }
 Future<void> _requestNotificationPermission() async {
   if (!Platform.isAndroid) return;
-  if (await Permission.notification.isDenied) {
-    await Permission.notification.request();
-  }
-  
+  await Future.delayed(Duration(seconds: 2));
   AppSettings? currentSettings = settingsBox.get('userSettings');
   print(currentSettings?.batteryUnrestricted);
   if(currentSettings == null || !currentSettings.batteryUnrestricted) {
     showBatteryDialog(context);
   }
+  if (await Permission.notification.isDenied) {
+    await Permission.notification.request();
+    if ((await Permission.notification.isGranted)){
+      final now = DateTime.now();
+      final secondsToNextMinute = 60 - now.second;
+      await Future.delayed(Duration(seconds: secondsToNextMinute));
+      NotificationService().scheduleAlarmEveryMinute();
+    }
+  }
 }
-
 void _sendTestNotification() async {
   if (await Permission.notification.isGranted) {
     NotificationService.showNotification();
-    final now = DateTime.now();
-    final scheduledTime = now.add(const Duration(minutes: 1));
-    await NotificationService().scheduleAlarmAt(scheduledTime);
     print("passed");
   } else {
      print("Notification permission not granted.");
@@ -195,6 +197,10 @@ void _sendTestNotification() async {
     }    
   }
 
+  void GestDetect () {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final tasksBox = HiveService.getTasksBox();
@@ -204,9 +210,11 @@ void _sendTestNotification() async {
         SystemNavigator.pop();
         return false; // Prevent default back navigation
       },
-      child: Scaffold(
-      backgroundColor: const Color(0xFF1E1E1E),
-      body: Stack(
+      child: GestureDetector(
+        onTap: () => GestDetect(),
+        child: Scaffold(
+        backgroundColor: const Color(0xFF1E1E1E),
+        body: Stack(
           children: [
             Positioned(
               top: 47.48,
@@ -321,7 +329,7 @@ void _sendTestNotification() async {
               )
           ],
         ),
-      )
+      ), ),
     );
   }
 
