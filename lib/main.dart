@@ -15,7 +15,7 @@ void main() async {
   await HiveService.init();
 
   await AndroidAlarmManager.initialize();
-  await NotificationService().initNotification(); 
+  await MediumNotification().initNotification(); 
   runApp(MyApp());
 }
 

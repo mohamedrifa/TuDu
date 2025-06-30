@@ -85,23 +85,10 @@ Future<void> _requestNotificationPermission() async {
   if (await Permission.notification.isDenied) {
     await Permission.notification.request();
     if ((await Permission.notification.isGranted)){
-      final now = DateTime.now();
-      final secondsToNextMinute = 60 - now.second;
-      await Future.delayed(Duration(seconds: secondsToNextMinute));
       NotificationService().scheduleAlarmEveryMinute();
     }
   }
 }
-void _sendTestNotification() async {
-  if (await Permission.notification.isGranted) {
-    NotificationService.showNotification();
-    print("passed");
-  } else {
-     print("Notification permission not granted.");
-    _requestNotificationPermission();
-  }
-}
-
   
   bool quickLinksEnabled = false;
   void quickLinkWidget() {
@@ -259,15 +246,6 @@ void _sendTestNotification() async {
                     ),
                   ),
                 ),
-                ElevatedButton.icon(
-                icon: Icon(Icons.notifications),
-                label: Text("Trigger Notification"),
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                ),
-                onPressed: () {
-                  _sendTestNotification();
-                },),
                 Expanded(
                   child: ValueListenableBuilder<Box<Task>>(
                     valueListenable: tasksBox.listenable(),

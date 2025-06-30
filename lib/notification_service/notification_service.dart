@@ -2,9 +2,13 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tudu/main.dart';
+import '../database/hive_service.dart';
 import '../models/settings.dart';
+import '../models/task.dart';
 import '../screens/onboarding_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -15,43 +19,10 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class NotificationService extends State<NotificationScreen> {
-  NotificationService._privateConstructor();
-  static final NotificationService _instance = NotificationService._privateConstructor();
-  factory NotificationService() => _instance;
-  final FlutterLocalNotificationsPlugin notificationPlugin = FlutterLocalNotificationsPlugin();
-  Future<void> initNotification() async {
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidSettings,
-    );
-    await notificationPlugin.initialize(initSettings);
-  }
-
-
-  NotificationDetails _notificationDetails() {
-    return const NotificationDetails(
-      android: AndroidNotificationDetails(
-        'alarm_channel',
-        'Alarms',
-        channelDescription: 'Channel for alarm notifications',
-        importance: Importance.max,
-        priority: Priority.high,
-        playSound: true,
-        enableVibration: true,
-        enableLights: true,
-        visibility: NotificationVisibility.public,
-      ),
-      iOS: DarwinNotificationDetails(),
-    );
-  }
-  
   Future<void> scheduleAlarmEveryMinute() async {
     const int alarmId = 1;
     const Duration interval = Duration(minutes: 1);
-
     print("⏰ Scheduling periodic alarm every minute");
-
     await AndroidAlarmManager.periodic(
       interval,
       alarmId,
@@ -59,17 +30,6 @@ class NotificationService extends State<NotificationScreen> {
       exact: true,
       wakeup: true,
       rescheduleOnReboot: true,
-    );
-  }
-
-
-  static Future<void> showNotification() async {
-    print("✅ showNotification() executed");
-    await _instance.notificationPlugin.show(
-      0,
-      'Alarm!',
-      'This is your scheduled alarm notification.',
-      _instance._notificationDetails(),
     );
   }
   Future<void> settingsUpdater() async {
@@ -91,14 +51,58 @@ class NotificationService extends State<NotificationScreen> {
     }
   }
 
-  Future<void> _handleAlarmCallback() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    print("✅ alarmCallback() triggered");
-    NotificationService.showNotification();
-    settingsUpdater();
+  bool allDaysFalse(List weekDays) {
+    for (var day in weekDays) {
+      if (day) return false;
+    }
+    return true;
+  }
+
+  bool filteredList(String date, List<bool> weekDays, bool isImportant, String taskScheduleddate) {
+    final now = DateTime.now();
+    if (allDaysFalse(weekDays)) {
+      // Handle one-time tasks
+      try {
+        final taskDate = DateFormat("d MM yyyy").parse(date);
+        return DateFormat("d MM yyyy").format(taskDate) == DateFormat("d MM yyyy").format(now);
+      } catch (e) {
+        print("❌ Error parsing task date: $e");
+        return false;
+      }
+    } else {
+      // Handle recurring tasks
+      final dayOfWeekIndex = now.weekday % 7; // Dart: Mon = 1, ..., Sun = 7 → index 0-6
+      return weekDays[dayOfWeekIndex];
+    }
   }
 
 
+  Future<void> _handleAlarmCallback() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    WidgetsFlutterBinding.ensureInitialized();
+  print("✅ alarmCallback() triggered");
+
+  // ✅ Initialize Hive again for background context
+  await Hive.initFlutter();
+
+  // ✅ Register adapters
+  Hive.registerAdapter(TaskAdapter());
+
+  // ✅ Open the box again
+  final box = await Hive.openBox<Task>('tasks');
+
+  final tasks = box.values.toList();
+
+  final filteredTasks = tasks
+      .where((task) => filteredList(
+            task.date,
+            task.weekDays,
+            task.important,
+            task.taskScheduleddate,
+          ))
+      .toList();
+    MediumNotification().showNotification();
+  }
   @override
   Widget build(BuildContext context) {
     return OnboardingScreen();}
@@ -110,4 +114,75 @@ void alarmCallback() {
   // Always sync at top level
   print("✅ alarmCallback() entry");
   NotificationService()._handleAlarmCallback(); // async logic offloaded
+}
+
+
+class MediumNotification {
+  MediumNotification._privateConstructor();
+  static final MediumNotification _instance = MediumNotification._privateConstructor();
+  factory MediumNotification() => _instance;
+  final FlutterLocalNotificationsPlugin notificationPlugin = FlutterLocalNotificationsPlugin();
+  Future<void> initNotification() async {
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidSettings,
+    );
+    await notificationPlugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // Handle button taps here
+        if (response.actionId == 'action_1') {
+          print('✅ Snooze button pressed');
+          // Add logic for snooze
+        } else if (response.actionId == 'action_2') {
+          print('✅ Dismiss button pressed');
+          // Add logic for dismiss
+        } else {
+          print('✅ Notification body tapped');
+        }
+      },
+    );
+  }
+
+  NotificationDetails _notificationDetails() {
+    return const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'alarm_channel',
+        'Alarms',
+        channelDescription: 'Channel for alarm notifications',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        enableLights: true,
+        ongoing: true,
+        autoCancel: false,
+        visibility: NotificationVisibility.public,
+        actions: <AndroidNotificationAction>[
+          AndroidNotificationAction(
+            'action_1', // action id
+            'Snooze',   // button text
+            showsUserInterface: true,
+          ),
+          AndroidNotificationAction(
+            'action_2',
+            'Dismiss',
+            showsUserInterface: true,
+          ),
+        ],
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+  }
+
+  Future<void> showNotification() async {
+    await notificationPlugin.show(
+      0,
+      '⏰ Alarm!',
+      'This is your scheduled alarm as notification.',
+      _notificationDetails(),
+      payload: 'default_payload', // optional
+    );
+  }
 }
