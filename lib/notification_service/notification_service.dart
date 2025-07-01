@@ -1,12 +1,9 @@
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:tudu/main.dart';
-import '../database/hive_service.dart';
 import '../models/settings.dart';
 import '../models/task.dart';
 import '../screens/onboarding_screen.dart';
@@ -80,27 +77,27 @@ class NotificationService extends State<NotificationScreen> {
   Future<void> _handleAlarmCallback() async {
     WidgetsFlutterBinding.ensureInitialized();
     WidgetsFlutterBinding.ensureInitialized();
-  print("✅ alarmCallback() triggered");
+    print("✅ alarmCallback() triggered");
+    // ✅ Initialize Hive again for background context
+    await Hive.initFlutter();
+    // ✅ Only register if not already registered
+    if (!Hive.isAdapterRegistered(TaskAdapter().typeId)) {
+      Hive.registerAdapter(TaskAdapter());
+    }
 
-  // ✅ Initialize Hive again for background context
-  await Hive.initFlutter();
+    // ✅ Open the box again
+    final box = await Hive.openBox<Task>('tasks');
 
-  // ✅ Register adapters
-  Hive.registerAdapter(TaskAdapter());
+    final tasks = box.values.toList();
 
-  // ✅ Open the box again
-  final box = await Hive.openBox<Task>('tasks');
-
-  final tasks = box.values.toList();
-
-  final filteredTasks = tasks
-      .where((task) => filteredList(
-            task.date,
-            task.weekDays,
-            task.important,
-            task.taskScheduleddate,
-          ))
-      .toList();
+    final filteredTasks = tasks
+        .where((task) => filteredList(
+              task.date,
+              task.weekDays,
+              task.important,
+              task.taskScheduleddate,
+            ))
+        .toList();
     MediumNotification().showNotification();
   }
   @override
