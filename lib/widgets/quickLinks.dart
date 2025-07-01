@@ -106,20 +106,24 @@ class _QuickLinksState extends State<QuickLinks> {
   }
 
   void setMediumAlert() {
-    if(mediumAlertName == " Efefjwfgguggkfbgfbggf") {
+    if (mediumAlertName == " Efefjwfgguggkfbgfbggf") {
       toast("Please Choose a File");
       return;
     }
+  
     var settingsBox = Hive.box<AppSettings>('settings');
     AppSettings? currentSettings = settingsBox.get('userSettings');
+  
     final updatedSettings = AppSettings(
       mediumAlertTone: mediumAlertLocation,
       loudAlertTone: currentSettings?.loudAlertTone ?? '',
-      batteryUnrestricted: currentSettings!.batteryUnrestricted,
+      batteryUnrestricted: currentSettings?.batteryUnrestricted ?? false,
     );
+
     settingsBox.put('userSettings', updatedSettings);
     toast("Medium Alert Tone is Set");
   }
+
 
   Future<void> pickLoudAlert() async {
     final XFile? file = await openFile();
@@ -156,7 +160,7 @@ class _QuickLinksState extends State<QuickLinks> {
     final updatedSettings = AppSettings(
       mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
       loudAlertTone: loudAlertLocation,
-      batteryUnrestricted: currentSettings!.batteryUnrestricted,
+      batteryUnrestricted: currentSettings?.batteryUnrestricted ?? false,
     );
     settingsBox.put('userSettings', updatedSettings);
     toast("Loud Alert Tone is Set");

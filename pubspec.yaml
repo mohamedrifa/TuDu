@@ -25,6 +25,7 @@ dependencies:
   android_intent_plus: ^5.3.0
   device_info_plus: ^11.5.0
   shared_preferences: ^2.5.3
+  audioplayers: ^6.5.0
   
   
 
@@ -62,6 +63,7 @@ flutter:
     - assets/taskPending.png
     - assets/dustBin.png
     - assets/tone.png
+    - assets/audio/medium.mp3
 
   fonts:
     - family: Poppins

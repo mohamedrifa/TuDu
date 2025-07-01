@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/settings.dart';
 import '../models/task.dart';
 import '../screens/onboarding_screen.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -84,9 +85,14 @@ class NotificationService extends State<NotificationScreen> {
     if (!Hive.isAdapterRegistered(TaskAdapter().typeId)) {
       Hive.registerAdapter(TaskAdapter());
     }
+    if (!Hive.isAdapterRegistered(SettingsAdapter().typeId)) {
+      Hive.registerAdapter(SettingsAdapter());
+    }
 
     // ✅ Open the box again
     final box = await Hive.openBox<Task>('tasks');
+
+    final box2 = await Hive.openBox<AppSettings>('settings');
 
     final tasks = box.values.toList();
 
@@ -98,7 +104,8 @@ class NotificationService extends State<NotificationScreen> {
               task.taskScheduleddate,
             ))
         .toList();
-    MediumNotification().showNotification();
+    final settings = box.values.toList();
+    MediumNotification().showNotification(settings);
   }
   @override
   Widget build(BuildContext context) {
@@ -150,7 +157,7 @@ class MediumNotification {
         channelDescription: 'Channel for alarm notifications',
         importance: Importance.max,
         priority: Priority.high,
-        playSound: true,
+        playSound: false,
         enableVibration: true,
         enableLights: true,
         ongoing: true,
@@ -173,7 +180,8 @@ class MediumNotification {
     );
   }
 
-  Future<void> showNotification() async {
+  Future<void> showNotification(List settings) async {
+    final AudioPlayer player = AudioPlayer();
     await notificationPlugin.show(
       0,
       '⏰ Alarm!',
@@ -181,5 +189,13 @@ class MediumNotification {
       _notificationDetails(),
       payload: 'default_payload', // optional
     );
+    // await player.play(DeviceFileSource(userSelectedPath));
+    if (settings.isEmpty ||
+        settings[0].mediumAlertTone == null ||
+        settings[0].mediumAlertTone.trim().isEmpty) {
+      await player.play(AssetSource('audio/medium.mp3'));
+    } else {
+      await player.play(DeviceFileSource(settings[0].mediumAlertTone));
+    }
   }
 }
