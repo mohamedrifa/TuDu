@@ -62,6 +62,10 @@ class TaskCard extends StatelessWidget {
     if (task != null) {
       task.beforeLoudAlert = !alert;
       task.afterLoudAlert = !alert;
+      if(!alert) {
+        task.beforeMediumAlert = alert;
+        task.afterMediumAlert = alert;
+      }
       box.put(id, task);
     }
   }
@@ -72,6 +76,10 @@ class TaskCard extends StatelessWidget {
     if (task != null) {
       task.beforeMediumAlert = !alert;
       task.afterMediumAlert = !alert;
+      if(!alert) {
+        task.beforeLoudAlert = alert;
+        task.afterLoudAlert = alert;
+      }
       box.put(id, task);
     }
   }
@@ -79,6 +87,7 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final box = Hive.box<Task>('tasks');
+    print(date);
     final task = box.get(id);
     if (task == null) {
       return const SizedBox.shrink();

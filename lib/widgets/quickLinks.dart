@@ -1,5 +1,6 @@
 // ignore: file_names
 import 'dart:io';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
@@ -9,6 +10,8 @@ import 'package:table_calendar/table_calendar.dart';
 import '../database/hive_service.dart';
 import '../models/settings.dart';
 import '../models/task.dart';
+// ignore: depend_on_referenced_packages
+import 'package:path/path.dart' as p;
 import 'package:file_selector/file_selector.dart';
 
 class QuickLinks extends StatefulWidget {
@@ -36,7 +39,7 @@ class _QuickLinksState extends State<QuickLinks> {
 
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-
+  final AudioPlayer player = AudioPlayer();
   Color containerColor = Colors.transparent;
   double rightOffset = -312; // Start off-screen
   String mediumAlertLocation = "";
@@ -73,6 +76,16 @@ class _QuickLinksState extends State<QuickLinks> {
       DateTime dateTime = format.parse(widget.showDate);
       _selectedDay = dateTime;
     } 
+    var settingsBox = Hive.box<AppSettings>('settings');
+    AppSettings? currentSettings = settingsBox.get('userSettings');
+    if(currentSettings != null && currentSettings.mediumAlertTone != '') {
+      String fileName = p.basename(currentSettings.mediumAlertTone);
+      mediumAlertName = fileName;
+    }
+    if(currentSettings != null && currentSettings.loudAlertTone != '') {
+      String fileName = p.basename(currentSettings.loudAlertTone);
+      loudAlertName = fileName;
+    }
   }
   bool isAudioFile(String fileName) {
   final audioExtensions = [
@@ -82,6 +95,7 @@ class _QuickLinksState extends State<QuickLinks> {
   return audioExtensions.any((ext) => lowerFileName.endsWith(ext));
 }
   Future<void> pickMediumAlert() async {
+    await player.stop();
     final XFile? file = await openFile();
     if (file != null) {
       if (!isAudioFile(file.name)) {
@@ -102,15 +116,16 @@ class _QuickLinksState extends State<QuickLinks> {
         mediumAlertLocation = newFile.path;
         print('File saved to: $mediumAlertLocation');
       });
+      await player.play(DeviceFileSource(mediumAlertLocation));
     }
   }
 
-  void setMediumAlert() {
+  Future<void> setMediumAlert() async {
+    player.stop();
     if (mediumAlertName == " Efefjwfgguggkfbgfbggf") {
       toast("Please Choose a File");
       return;
     }
-  
     var settingsBox = Hive.box<AppSettings>('settings');
     AppSettings? currentSettings = settingsBox.get('userSettings');
   
@@ -121,11 +136,14 @@ class _QuickLinksState extends State<QuickLinks> {
     );
 
     settingsBox.put('userSettings', updatedSettings);
+    // NotificationService().stopPeriodicAlarm();
+    // await Future.delayed(Duration(seconds: 2));
+    // NotificationService().scheduleAlarmEveryMinute();
     toast("Medium Alert Tone is Set");
   }
 
-
   Future<void> pickLoudAlert() async {
+    await player.stop();
     final XFile? file = await openFile();
     if (file != null) {
       if (!isAudioFile(file.name)) {
@@ -146,10 +164,12 @@ class _QuickLinksState extends State<QuickLinks> {
         loudAlertLocation = newFile.path;
         print('File saved to: $loudAlertLocation');
       });
+      await player.play(DeviceFileSource(loudAlertLocation));
     }
   }
 
-  void setLoudAlert () {
+  Future<void> setLoudAlert () async {
+    player.stop();
     if(loudAlertLocation == " Efefjwfgguggkfbgfbggf") {
       toast("Please Choose a File");
       return;
@@ -163,10 +183,14 @@ class _QuickLinksState extends State<QuickLinks> {
       batteryUnrestricted: currentSettings?.batteryUnrestricted ?? false,
     );
     settingsBox.put('userSettings', updatedSettings);
+    // NotificationService().stopPeriodicAlarm();
+    // await Future.delayed(Duration(seconds: 2));
+    // NotificationService().scheduleAlarmEveryMinute();
     toast("Loud Alert Tone is Set");
   }
 
-  void _toggleQuickLinks() {
+  void _toggleQuickLinks () {
+    player.stop();
     if (!mounted) return;
     setState(() {
       isEnabled = !isEnabled;
@@ -327,6 +351,7 @@ class _QuickLinksState extends State<QuickLinks> {
                       focusedDay: _focusedDay,
                       selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                       onDaySelected: (selectedDay, focusedDay) {
+                        player.stop();
                         setState(() {
                           _selectedDay = selectedDay;
                           _focusedDay = focusedDay;
@@ -479,6 +504,7 @@ class _QuickLinksState extends State<QuickLinks> {
                           ),
                         ),
                         onExpansionChanged: (bool expanded) {
+                          player.stop();
                           setState(() {
                             isExpanded = expanded;
                           });

@@ -78,11 +78,12 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   String location = "";
   String subTask = "";
   bool isBeforeLoudAlert = false;
-  bool isBeforeMediumAlert = false;
-  bool isAfterLoudAlert = false;
+  bool isBeforeMediumAlert = true;
+  bool isAfterLoudAlert = true;
   bool isAfterMediumAlert = false;
   String selectedBefore = "5 Mins";
   String selectedAfter = "On Time";
+  List taskCompletionDates = [];
   // End
 
   bool _selectedDaysCheck () {
@@ -152,7 +153,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       isAfterMediumAlert = task.afterMediumAlert;
 
       selectedAfter = task.alertAfter;
-
+      taskCompletionDates = task.taskCompletionDates;
     }
   }
 
@@ -289,7 +290,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       afterMediumAlert: isAfterMediumAlert,
       alertBefore: selectedBefore,
       alertAfter: selectedAfter,
-      taskCompletionDates: [],
+      taskCompletionDates: taskCompletionDates,
       taskScheduleddate: DateFormat('d MM yyyy').format(DateTime.now()),
     );
     box.put(widget.taskId, task); 
