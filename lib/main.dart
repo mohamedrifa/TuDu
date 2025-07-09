@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
       title: 'Fullscreen App',
       navigatorKey: navKey,
       debugShowCheckedModeBanner: false,
-      initialRoute: '/',
+      initialRoute: '/lockscreen',
       routes: {
         '/lockscreen': (context) => AlarmScreen(title: 'testing', description: 'module',),
         '/': (context) => FullScreenPage(),

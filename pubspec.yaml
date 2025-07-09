@@ -64,6 +64,8 @@ flutter:
     - assets/dustBin.png
     - assets/tone.png
     - assets/audio/medium.mp3
+    - assets/goIcon.png
+    - assets/laterIcon.png
 
   fonts:
     - family: Poppins

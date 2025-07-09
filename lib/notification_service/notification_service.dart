@@ -69,7 +69,7 @@ class NotificationService extends State<NotificationScreen> {
       }
     } else {
       // Handle recurring tasks
-      final dayOfWeekIndex = now.weekday % 7; // Dart: Mon = 1, ..., Sun = 7 → index 0-6
+      final dayOfWeekIndex = now.weekday - 1; // Dart: Mon = 1, ..., Sun = 7 → index 0-6
       return weekDays[dayOfWeekIndex];
     }
   }
@@ -315,13 +315,14 @@ class MediumNotification {
           AndroidNotificationAction(
             'action_1',
             'Later',
-            showsUserInterface: false,
-            cancelNotification: true,
+            showsUserInterface: true,
+            cancelNotification: false,
           ),
           AndroidNotificationAction(
             'action_2',
             'Go',
             showsUserInterface: true,
+            cancelNotification: false,
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -19,6 +20,18 @@ class AlarmScreen extends StatefulWidget {
 }
 
 class _AlarmScreenState extends State<AlarmScreen> {
+  late double screenWidth;
+  late double screenHeight;
+  double elipseWidth = 108.3;
+  double elipseHeight = 108.3;
+  Color elipseColor = Color.fromARGB(0, 0, 0, 0);
+  late Timer _timer;
+  bool isExpanded = false;
+
+  String title = "Read Novel";
+  String prompText = "Start Now";
+  String timing = "6.00 A.M To 7.00 A.M";
+
   Future<void> dismissAlarm() async {
     try {
       await AlarmScreen._channel.invokeMethod('close');
@@ -33,8 +46,49 @@ class _AlarmScreenState extends State<AlarmScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
+    startElipseAnimation();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
+  }
+
+  void startElipseAnimation() {
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      setState(() {
+        if (isExpanded) {
+          elipseHeight = 108.3;
+          elipseWidth = 108.3;
+          elipseColor = Colors.transparent;
+        } else {
+          elipseWidth = 576.67;
+          elipseHeight = 833.48;
+          elipseColor = Color(0xFF27262B);
+        }
+        isExpanded = !isExpanded;
+      });
+    });
+  }
+
+  double objHeight(double height) {
+    return (height / 917) * screenHeight;
+  }
+  double objWidth(double Width) {
+    return (Width / 412) * screenWidth;
+  }
+
+  void handleGO () {
+
+  }
+  void handleLater () {
+
+  }
+  void handleSkip () {
+
+  }
+  @override
+  Widget build(BuildContext context) {
+    screenWidth = MediaQuery.of(context).size.width;
+    screenHeight = MediaQuery.of(context).size.height;
     return WillPopScope(
       onWillPop: () async {
         dismissAlarm();
@@ -52,33 +106,178 @@ class _AlarmScreenState extends State<AlarmScreen> {
           child: Scaffold(
             backgroundColor: Color(0xFF313036),
             body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.alarm, size: 100, color: Colors.red),
-                const SizedBox(height: 20),
-                Text(
-                  widget.title,
-                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  widget.description,
-                  style: const TextStyle(fontSize: 18),
-                ),
-                const SizedBox(height: 30),
-                ElevatedButton(
-                  onPressed: () => {
-                    dismissAlarm(),
-                  },
-                  child: Text(widget.buttonText),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+              child: Stack(
+                children: [
+                  OverflowBox(
+                    maxWidth: double.infinity,
+                    maxHeight: double.infinity,
+                    child: ClipOval(
+                      child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 3000),
+                      curve: Curves.easeInOut,
+                        width: objWidth(elipseWidth),
+                        height: objHeight(elipseHeight),
+                        color: elipseColor,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    padding: EdgeInsets.symmetric(horizontal: objWidth(16)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(height: objHeight(67.7)),
+                        Align(
+                          alignment: Alignment.topLeft,
+                          child: Image.asset(
+                            'assets/logo.png',
+                            width: objWidth(56.03),
+                            height: objHeight(22),
+                          ),
+                        ),
+                        SizedBox(height: objHeight(78.01)),
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            color: Color(0xFFEBFAF9),
+                            fontWeight: FontWeight.w600,
+                            fontSize: objWidth(40),
+                          ),
+                        ),
+                        Text(
+                          prompText,
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            color: Color(0xFFEBFAF9),
+                            fontWeight: FontWeight.w600,
+                            fontSize: objWidth(32),
+                          ),
+                        ),
+                        SizedBox(height: objHeight(33.92)),
+                        Text(
+                          timing,
+                          style: TextStyle(
+                            fontFamily: 'Quantico',
+                            color: Color(0xFFEBFAF9),
+                            fontWeight: FontWeight.w700,
+                            fontSize: objWidth(18),
+                          ),
+                        ),
+                        SizedBox(height: objHeight(395)),
+                        Container(
+                          width: double.infinity,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Material(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                                color: Color(0xFF1B1A1E),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(25),
+                                  onTap: () => {handleLater()},
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(vertical: 10),
+                                    width: objWidth(170),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          "Later",
+                                          style: TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFFEBFAF9),
+                                            fontSize: 24
+                                          ),
+                                        ),
+                                        SizedBox(width: 5),
+                                        Image.asset(
+                                          'assets/laterIcon.png',
+                                          width: 30,
+                                          height: 30,
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                ),
+                              ),
+                              Material(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                                color: Color(0xFF1B1A1E),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(25),
+                                  onTap: () => {handleGO()},
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(vertical: 10),
+                                    width: objWidth(170),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          "Go",
+                                          style: TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFFEBFAF9),
+                                            fontSize: 24
+                                          ),
+                                        ),
+                                        SizedBox(width: 5),
+                                        Image.asset(
+                                          'assets/goIcon.png',
+                                          width: 30,
+                                          height: 30,
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: objHeight(16)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Unable To Do Now? ",
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                                color: Color(0xFFEBFAF9),
+                              ),
+                            ),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => {handleSkip()},
+                                child: Text(
+                                  "Skip This",
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                    color: const Color(0xFF227D7B),
+                                    decoration: TextDecoration.underline,
+                                    decorationColor: const Color(0xFF227D7B),
+                                    decorationStyle: TextDecorationStyle.solid, 
+                                  ),
+                                ),
+                              )
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                  )
+                ],
+              )
             ),
-          ),
           ) 
         ),
       )
