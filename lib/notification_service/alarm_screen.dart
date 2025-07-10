@@ -1,6 +1,11 @@
 import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hive/hive.dart';
+import 'package:tudu/models/settings.dart';
+import 'package:vibration/vibration.dart';
+import 'package:volume_controller/volume_controller.dart';
 
 class AlarmScreen extends StatefulWidget {
   static const MethodChannel _channel = MethodChannel('custom.alarm.channel');
@@ -27,10 +32,14 @@ class _AlarmScreenState extends State<AlarmScreen> {
   Color elipseColor = Color.fromARGB(0, 0, 0, 0);
   late Timer _timer;
   bool isExpanded = false;
+  final AudioPlayer player = AudioPlayer();
 
   String title = "Read Novel";
   String prompText = "Start Now";
   String timing = "6.00 A.M To 7.00 A.M";
+  
+  Timer? vibrationTimer;
+  bool _listening = false;
 
   Future<void> dismissAlarm() async {
     try {
@@ -45,11 +54,62 @@ class _AlarmScreenState extends State<AlarmScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
   }
 
+  void startRepeatedVibration() async {
+    bool? hasVibrator = await Vibration.hasVibrator();
+    if (hasVibrator) {
+        Vibration.vibrate(
+          pattern: [500, 1000, 500, 1000], // vibrate, pause, vibrate, pause
+          repeat: 0, // repeat indefinitely from index 0
+      );
+    }
+  }
+
+  void _startListening() {
+    if (!_listening) {
+      VolumeController().listener((volume) {
+        stopEffect();
+        setState(() {
+          // _buttonPressed = 'Volume button pressed!';
+        });
+      });
+      _listening = true;
+    }
+  }
+
+  void stopEffect() {
+    Vibration.cancel();
+    player.stop();
+  }
+
+  Future<void> ringtoneHandler() async {
+    if (Hive.isBoxOpen('settings')) {
+      await Hive.box<AppSettings>('settings').close();
+    }
+    final settingsBox = await Hive.openBox<AppSettings>('settings');
+    final userSettings = settingsBox.get('userSettings');
+    final tonePath = userSettings?.loudAlertTone;
+    startRepeatedVibration();
+    await player.setReleaseMode(ReleaseMode.loop);
+    if (tonePath != null && tonePath.isNotEmpty) {
+      await player.play(DeviceFileSource(tonePath));
+    } else {
+      await player.play(AssetSource('audio/loud.mp3'));
+    }
+  }
+
+
   @override
   void initState() {
     super.initState();
     startElipseAnimation();
+    ringtoneHandler();
+    _startListening();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
+  }
+  @override
+  void dispose() {
+    VolumeController().removeListener();
+    super.dispose();
   }
 
   void startElipseAnimation() {

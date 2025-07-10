@@ -63,7 +63,6 @@ class _QuickLinksState extends State<QuickLinks> {
     super.initState();
     isEnabled = widget.quickLinksEnabled;
     selectedDate = widget.showDate;
-    // Show panel after short delay
     Future.delayed(const Duration(milliseconds: 50), () {
       if (!mounted) return;
       setState(() {
@@ -88,12 +87,12 @@ class _QuickLinksState extends State<QuickLinks> {
     }
   }
   bool isAudioFile(String fileName) {
-  final audioExtensions = [
-    '.mp3', '.aac', '.wav', '.flac', '.ogg', '.opus', '.m4a', '.amr', '.3gp', '.caf'
-  ];
-  String lowerFileName = fileName.toLowerCase();
-  return audioExtensions.any((ext) => lowerFileName.endsWith(ext));
-}
+    final audioExtensions = [
+      '.mp3', '.aac', '.wav', '.flac', '.ogg', '.opus', '.m4a', '.amr', '.3gp', '.caf'
+    ];
+    String lowerFileName = fileName.toLowerCase();
+    return audioExtensions.any((ext) => lowerFileName.endsWith(ext));
+  }
   Future<void> pickMediumAlert() async {
     await player.stop();
     final XFile? file = await openFile();
@@ -128,17 +127,12 @@ class _QuickLinksState extends State<QuickLinks> {
     }
     var settingsBox = Hive.box<AppSettings>('settings');
     AppSettings? currentSettings = settingsBox.get('userSettings');
-  
     final updatedSettings = AppSettings(
       mediumAlertTone: mediumAlertLocation,
       loudAlertTone: currentSettings?.loudAlertTone ?? '',
       batteryUnrestricted: currentSettings?.batteryUnrestricted ?? false,
     );
-
     settingsBox.put('userSettings', updatedSettings);
-    // NotificationService().stopPeriodicAlarm();
-    // await Future.delayed(Duration(seconds: 2));
-    // NotificationService().scheduleAlarmEveryMinute();
     toast("Medium Alert Tone is Set");
   }
 
@@ -170,22 +164,18 @@ class _QuickLinksState extends State<QuickLinks> {
 
   Future<void> setLoudAlert () async {
     player.stop();
-    if(loudAlertLocation == " Efefjwfgguggkfbgfbggf") {
+    if(loudAlertName == " Efefjwfgguggkfbgfbggf") {
       toast("Please Choose a File");
       return;
     }
     var settingsBox = Hive.box<AppSettings>('settings');
     AppSettings? currentSettings = settingsBox.get('userSettings');
-    // Fallback for when no settings exist yet
     final updatedSettings = AppSettings(
       mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
       loudAlertTone: loudAlertLocation,
       batteryUnrestricted: currentSettings?.batteryUnrestricted ?? false,
     );
     settingsBox.put('userSettings', updatedSettings);
-    // NotificationService().stopPeriodicAlarm();
-    // await Future.delayed(Duration(seconds: 2));
-    // NotificationService().scheduleAlarmEveryMinute();
     toast("Loud Alert Tone is Set");
   }
 
@@ -258,7 +248,6 @@ class _QuickLinksState extends State<QuickLinks> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Background tap closes panel
         GestureDetector(
           onTap: () {
             if (!mounted) return;
@@ -279,7 +268,7 @@ class _QuickLinksState extends State<QuickLinks> {
             color: containerColor,
           ),
         ),
-        // Sliding panel
+        
         AnimatedPositioned(
           key: const ValueKey('quickLinksPanel'),
           duration: const Duration(milliseconds: 300),
