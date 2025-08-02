@@ -13,7 +13,6 @@ void main() async {
   final appDocumentDir = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocumentDir.path);
   await HiveService.init();
-
   await AndroidAlarmManager.initialize();
   await MediumNotification().initNotification(); 
   runApp(MyApp());
@@ -28,7 +27,7 @@ class MyApp extends StatelessWidget {
       title: 'Fullscreen App',
       navigatorKey: navKey,
       debugShowCheckedModeBanner: false,
-      initialRoute: '/lockscreen',
+      initialRoute: '/',
       routes: {
         '/lockscreen': (context) => AlarmScreen(title: 'testing', description: 'module',),
         '/': (context) => FullScreenPage(),
@@ -37,16 +36,16 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// class AlarmService {
-//   static const MethodChannel _channel = MethodChannel('custom.alarm.channel');
-//   static Future<void> scheduleAlarm() async {
-//     try {
-//       await _channel.invokeMethod('scheduleAlarm');
-//     } catch (e) {
-//       print('❌ Failed to call native alarm: $e');
-//     }
-//   }
-// }
+class AlarmService {
+  static const MethodChannel _channel = MethodChannel('custom.alarm.channel');
+  static Future<void> scheduleAlarm() async {
+    try {
+      await _channel.invokeMethod('scheduleAlarm');
+    } catch (e) {
+      print('❌ Failed to call native alarm: $e');
+    }
+  }
+}
 
 class FullScreenPage extends StatelessWidget {
   @override

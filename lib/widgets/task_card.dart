@@ -84,6 +84,16 @@ class TaskCard extends StatelessWidget {
     }
   }
 
+  void handleCheckMark() {
+    final box = Hive.box<Task>('tasks');
+    final task = box.get(id);
+    if (task != null) {
+      if (!task.taskCompletionDates.contains(date)) {
+        task.taskCompletionDates.add(date);
+      }
+      box.put(id, task);
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final box = Hive.box<Task>('tasks');
@@ -257,10 +267,20 @@ class TaskCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Image.asset(
-                      task.taskCompletionDates.contains(date) ? "assets/taskDone.png" : "assets/taskPending.png",
-                      width: 48,
-                      height: 48,
+                    Material(
+                      color: Colors.transparent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                      child: InkWell(
+                        onTap: () {
+                          handleCheckMark();
+                        },
+                        borderRadius: BorderRadius.circular(5),
+                        child: Image.asset(
+                          task.taskCompletionDates.contains(date) ? "assets/taskDone.png" : "assets/taskPending.png",
+                          width: 48,
+                          height: 48,
+                        ),
+                      ),
                     ),
                   ],
                 ),

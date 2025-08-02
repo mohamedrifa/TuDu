@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:tudu/main.dart';
 import '../models/settings.dart';
 import '../models/task.dart';
 import '../screens/onboarding_screen.dart';
@@ -162,7 +163,7 @@ class NotificationService extends State<NotificationScreen> {
           }
           if(filteredTasks[i].beforeLoudAlert) {
             print("before loud alert");
-            // for full screen
+            AlarmService.scheduleAlarm();
           }
         }
       }
@@ -203,7 +204,7 @@ class NotificationService extends State<NotificationScreen> {
           }
           if(filteredTasks[i].afterLoudAlert) {
             print("after loud alert");
-            // for full screen
+            AlarmService.scheduleAlarm();
           }
         }
       }
