@@ -171,7 +171,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     }
   }
   
-  void submitTask() {
+  Future<void> submitTask() async {
     bool toAlert = false;
     String toastMessage = "";
     if(taskName == ""){

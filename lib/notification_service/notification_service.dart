@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -5,9 +7,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tudu/main.dart';
+import 'package:tudu/screens/onboarding_screen.dart';
 import '../models/settings.dart';
 import '../models/task.dart';
-import '../screens/onboarding_screen.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -162,8 +164,7 @@ class NotificationService extends State<NotificationScreen> {
             );
           }
           if(filteredTasks[i].beforeLoudAlert) {
-            print("before loud alert");
-            AlarmService.scheduleAlarm();
+           AlarmService.scheduleAlarm();
           }
         }
       }
@@ -203,7 +204,6 @@ class NotificationService extends State<NotificationScreen> {
             );
           }
           if(filteredTasks[i].afterLoudAlert) {
-            print("after loud alert");
             AlarmService.scheduleAlarm();
           }
         }
@@ -229,6 +229,7 @@ class NotificationService extends State<NotificationScreen> {
 @pragma('vm:entry-point')
 void alarmCallback() {
   // Always sync at top level
+  DartPluginRegistrant.ensureInitialized();
   print("✅ alarmCallback() entry");
   NotificationService()._handleAlarmCallback(); // async logic offloaded
 }
@@ -242,7 +243,6 @@ class MediumNotification {
   final FlutterLocalNotificationsPlugin notificationPlugin = FlutterLocalNotificationsPlugin();
   final AudioPlayer player = AudioPlayer();
   String taskId = "";
-
   Future<void> initNotification() async {
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
