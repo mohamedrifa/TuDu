@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'task_screen.dart';
 import 'package:intl/intl.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import '../models/task.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+
+// ✅ SQLite-backed model & repo
+import '../data/task_model.dart';
+import '../data/task_repository.dart';
 
 class TaskAddingScreen extends StatefulWidget {
   final String taskId;
@@ -16,6 +18,9 @@ class TaskAddingScreen extends StatefulWidget {
 }
 
 class _TaskAddingScreenState extends State<TaskAddingScreen> {
+  // === SQLite repo ===
+  late final TaskRepository _taskRepo;
+
   double leftOffset = 0;
   DateTime now = DateTime.now();
   String formattedDate = DateFormat('EEEE, d MMMM').format(DateTime.now());
@@ -23,9 +28,9 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   final fromHourFocus = FocusNode();
   final fromMinuteFocus = FocusNode();
   final toHourFocus = FocusNode();
-  final toMinuteFocus = FocusNode();    
+  final toMinuteFocus = FocusNode();
   final _tagFocusNode = FocusNode();
-  final fromMinuteRawKeyFocus = FocusNode(); 
+  final fromMinuteRawKeyFocus = FocusNode();
   final toMinuteRawKeyFocus = FocusNode();
   final fromHourRawFocus = FocusNode();
   final toHourRawFocus = FocusNode();
@@ -33,6 +38,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   final tagController = TextEditingController();
 
   String showDate = "Today-${DateFormat('EEE, d MMMM').format(DateTime.now())}";
+
   @override
   void dispose() {
     fromHourController.dispose();
@@ -45,25 +51,26 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     toHourFocus.dispose();
     toMinuteFocus.dispose();
 
-     _tagFocusNode.dispose();
+    _tagFocusNode.dispose();
     super.dispose();
   }
+
   final taskNameController = TextEditingController();
   final locationController = TextEditingController();
   final subTaskController = TextEditingController();
 
-  void toast (String msg) {
+  void toast(String msg) {
     Fluttertoast.showToast(
       msg: msg,
-      toastLength: Toast.LENGTH_SHORT, // or Toast.LENGTH_LONG
-      gravity: ToastGravity.CENTER, // or TOP, CENTER
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.CENTER,
       backgroundColor: Colors.black,
       textColor: Colors.white,
       fontSize: 16.0,
     );
   }
 
-  // Datas to Submit
+  // ===== Datas to Submit =====
   String taskName = "";
   String date = DateFormat('d MM yyyy').format(DateTime.now());
   List<bool> _selectedDays = List.generate(7, (index) => false);
@@ -84,11 +91,11 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   String selectedBefore = "5 Mins";
   String selectedAfter = "On Time";
   List taskCompletionDates = [];
-  // End
+  // ============================
 
-  bool _selectedDaysCheck () {
+  bool _selectedDaysCheck() {
     for (int i = 0; i < _selectedDays.length; i++) {
-      if(_selectedDays[i]) {
+      if (_selectedDays[i]) {
         return false;
       }
     }
@@ -98,71 +105,86 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   @override
   void initState() {
     super.initState();
-    final box = Hive.box<Task>('tasks');
-    final task = box.get(widget.taskId);
-    if(widget.isEdit) {
-      taskNameController.text = task!.title;
-      taskName = task.title;
+    _taskRepo = SqliteTaskRepository();
 
-      _selectedDays = task.weekDays;
-      date = task.date;
-      if(_selectedDaysCheck()) {
-        String dateString = task.date;
-        DateFormat format = DateFormat("d MM yyyy");
-        DateTime parsedDate = format.parse(dateString);
-        showdateModify(parsedDate);
-      } else {
-        for (int i = 0; i < _selectedDays.length; i++) {
-          daySelection(i);
-          updateShowDate();
+    if (widget.isEdit) {
+      // Load existing task from SQLite after first frame to avoid build-time setState
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final task = await _taskRepo.getById(widget.taskId);
+        if (task == null) return;
+
+        // ===== Your original field wiring (preserved) =====
+        taskNameController.text = task.title;
+        taskName = task.title;
+
+        _selectedDays = task.weekDays;
+        date = task.date;
+
+        if (_selectedDaysCheck()) {
+          String dateString = task.date;
+          DateFormat format = DateFormat("d MM yyyy");
+          DateTime parsedDate = format.parse(dateString);
+          showdateModify(parsedDate);
+        } else {
+          for (int i = 0; i < _selectedDays.length; i++) {
+            daySelection(i);
+            updateShowDate();
+          }
         }
-      }
 
-      List<String> parts1 = task.fromTime.split(":");
-      int fromHour = int.parse(parts1[0]);
-      int fromMinute = int.parse(parts1[1]);
-      DateTime time1 = DateTime(0, 1, 1, fromHour, fromMinute);
-      fromHourController.text = DateFormat('hh').format(time1);
-      fromMinuteController.text = DateFormat('mm').format(time1);
-      fromperiod = DateFormat('a').format(time1).replaceAll("AM", "A.M").replaceAll("PM", "P.M");
+        // fromTime
+        List<String> parts1 = task.fromTime.split(":");
+        int fromHour = int.parse(parts1[0]);
+        int fromMinute = int.parse(parts1[1]);
+        DateTime time1 = DateTime(0, 1, 1, fromHour, fromMinute);
+        fromHourController.text = DateFormat('hh').format(time1);
+        fromMinuteController.text = DateFormat('mm').format(time1);
+        fromperiod = DateFormat('a').format(time1).replaceAll("AM", "A.M").replaceAll("PM", "P.M");
 
-      List<String> parts2 = task.toTime.split(":");
-      int toHour = int.parse(parts2[0]);
-      int toMinute = int.parse(parts2[1]);
-      DateTime time2 = DateTime(0, 1, 1, toHour, toMinute);
-      toHourController.text = DateFormat('hh').format(time2);
-      toMinuteController.text = DateFormat('mm').format(time2);
-      toperiod = DateFormat('a').format(time2).replaceAll("AM", "A.M").replaceAll("PM", "P.M");
+        // toTime
+        List<String> parts2 = task.toTime.split(":");
+        int toHour = int.parse(parts2[0]);
+        int toMinute = int.parse(parts2[1]);
+        DateTime time2 = DateTime(0, 1, 1, toHour, toMinute);
+        toHourController.text = DateFormat('hh').format(time2);
+        toMinuteController.text = DateFormat('mm').format(time2);
+        toperiod = DateFormat('a').format(time2).replaceAll("AM", "A.M").replaceAll("PM", "P.M");
 
-      selectedTag = task.tags;
+        selectedTag = task.tags;
 
-      isImportant = task.important;
+        isImportant = task.important;
 
-      locationController.text = task.location;
-      location = task.location;
+        locationController.text = task.location;
+        location = task.location;
 
-      subTaskController.text = task.subTask;
-      subTask = task.subTask;
+        subTaskController.text = task.subTask;
+        subTask = task.subTask;
 
-      isBeforeLoudAlert = task.beforeLoudAlert;
-      isBeforeMediumAlert = task.beforeMediumAlert;
+        isBeforeLoudAlert = task.beforeLoudAlert;
+        isBeforeMediumAlert = task.beforeMediumAlert;
 
-      selectedBefore = task.alertBefore;
+        // 🔁 NOTE: using selectedBefore/selectedAfter from the SQLite model
+        selectedBefore = task.selectedBefore;
 
-      isAfterLoudAlert = task.afterLoudAlert;
-      isAfterMediumAlert = task.afterMediumAlert;
+        isAfterLoudAlert = task.afterLoudAlert;
+        isAfterMediumAlert = task.afterMediumAlert;
 
-      selectedAfter = task.alertAfter;
-      taskCompletionDates = task.taskCompletionDates;
+        selectedAfter = task.selectedAfter;
+        taskCompletionDates = task.taskCompletionDates;
+
+        if (mounted) setState(() {});
+        // ================================================
+      });
     }
   }
 
-  void clearTimeController () {
+  void clearTimeController() {
     fromHourController.text = "";
     fromMinuteController.text = "";
     toHourController.text = "";
     toMinuteController.text = "";
   }
+
   int to24Hour(int hour, String period) {
     if (period == 'A.M') {
       return hour == 12 ? 0 : hour;
@@ -170,53 +192,56 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       return hour == 12 ? 12 : hour + 12;
     }
   }
-  
+
   Future<void> submitTask() async {
     bool toAlert = false;
     String toastMessage = "";
-    if(taskName == ""){
+    if (taskName == "") {
       toastMessage != "" ? toastMessage = "$toastMessage," : toastMessage = "";
       toAlert = true;
       toastMessage = "$toastMessage Task Name";
     }
-    if(fromHourController.text == "" || fromMinuteController.text == ""  || toHourController.text == "" || toMinuteController.text == "") {
+    if (fromHourController.text == "" ||
+        fromMinuteController.text == "" ||
+        toHourController.text == "" ||
+        toMinuteController.text == "") {
       toastMessage != "" ? toastMessage = "$toastMessage," : toastMessage = "";
       toAlert = true;
       toastMessage = "$toastMessage Time Scheduling";
     }
-    if(location == "") {
+    if (location == "") {
       toastMessage != "" ? toastMessage = "$toastMessage," : toastMessage = "";
       toAlert = true;
       toastMessage = "$toastMessage Loaction";
     }
-    if(toAlert){
+    if (toAlert) {
       toastMessage = "$toastMessage are Required";
       toast(toastMessage);
       return;
     }
-    bool fromFlag  =  false;
-    bool toFlag  = false;
+    bool fromFlag = false;
+    bool toFlag = false;
     int fromHour = int.tryParse(fromHourController.text) ?? 0;
     int toHour = int.tryParse(toHourController.text) ?? 0;
     int fromMinute = int.tryParse(fromMinuteController.text) ?? 0;
     int toMinute = int.tryParse(toMinuteController.text) ?? 0;
-    if(fromHour > 12 || fromHour < 1 || fromMinute > 59 || fromMinute < 0) {
+    if (fromHour > 12 || fromHour < 1 || fromMinute > 59 || fromMinute < 0) {
       fromHourController.text = "";
       fromMinuteController.text = "";
       toastMessage = "Invalid From Time";
       fromFlag = true;
     }
-    if(toHour > 12 || toHour < 1 || toMinute > 59 || toMinute < 0) {
+    if (toHour > 12 || toHour < 1 || toMinute > 59 || toMinute < 0) {
       toHourController.text = "";
       toMinuteController.text = "";
       toastMessage = "Invalid To Time";
       toFlag = true;
     }
-    if(fromFlag && toFlag) {
+    if (fromFlag && toFlag) {
       toastMessage = "Invalid From and To Time";
     }
 
-    if(fromFlag || toFlag) {
+    if (fromFlag || toFlag) {
       toast(toastMessage);
       return;
     }
@@ -230,49 +255,60 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       toast("From Time should be less than To Time");
       return;
     }
-    final box = Hive.box<Task>('tasks');
+
+    // ===== Conflict check using SQLite candidates =====
+    final candidates = await _taskRepo.getConflictCandidates(
+      date: date,
+      excludeId: widget.taskId,
+    );
+
     String anotherTask = "";
     String existingFromTime = "";
     String existingToTime = "";
-    final conflictingTask = box.values.cast<Task?>().firstWhere(
-      (t) {
-        if (t == null || t.id == widget.taskId) return false;
-        bool hasDateConflict = false;
-        if (t.date == "repeat") {
-          for (int i = 0; i < 7; i++) {
-            if (t.weekDays[i] && _selectedDays[i]) {
-              hasDateConflict = true;
-              break;
-            }
+
+    Task? conflictingTask;
+    for (final t in candidates) {
+      bool hasDateConflict = false;
+      if (t.date == "repeat") {
+        for (int i = 0; i < 7; i++) {
+          if (t.weekDays[i] && _selectedDays[i]) {
+            hasDateConflict = true;
+            break;
           }
-        } else if ((t.date == date)) {
-          hasDateConflict = true;
         }
-        if (!hasDateConflict) return false;
-        final fromParts = t.fromTime.split(":").map(int.parse).toList();
-        final toParts = t.toTime.split(":").map(int.parse).toList();
-        final existingFrom = fromParts[0] * 60 + fromParts[1];
-        final existingTo = toParts[0] * 60 + toParts[1];
+      } else if ((t.date == date)) {
+        hasDateConflict = true;
+      }
+      if (!hasDateConflict) continue;
+
+      final fromParts = t.fromTime.split(":").map(int.parse).toList();
+      final toParts = t.toTime.split(":").map(int.parse).toList();
+      final existingFrom = fromParts[0] * 60 + fromParts[1];
+      final existingTo = toParts[0] * 60 + toParts[1];
+      String formatTime(int hour, int minute) {
+        final suffix = hour >= 12 ? "P.M" : "A.M";
+        final formattedHour = hour % 12 == 0 ? 12 : hour % 12;
+        final formattedMinute = minute.toString().padLeft(2, '0');
+        return "$formattedHour:$formattedMinute $suffix";
+      }
+      if (fromTotalMinutes < existingTo && toTotalMinutes > existingFrom) {
         anotherTask = t.title;
-        String formatTime(int hour, int minute) {
-          final suffix = hour >= 12 ? "P.M" : "A.M";
-          final formattedHour = hour % 12 == 0 ? 12 : hour % 12;
-          return "$formattedHour:$minute $suffix";
-        }
         existingFromTime = formatTime(fromParts[0], fromParts[1]);
         existingToTime = formatTime(toParts[0], toParts[1]);
-        return fromTotalMinutes < existingTo && toTotalMinutes > existingFrom;
-
-      },
-      orElse: () => null,
-    );
+        conflictingTask = t;
+        break;
+      }
+    }
     if (conflictingTask != null) {
       toast("$anotherTask is scheduled From: $existingFromTime To: $existingToTime time range. Please adjust the timing.");
       return;
     }
+
+    // Build 24h strings for storage
     String fromTime = "${fromHour.toString().padLeft(2, '0')}:${fromMinuteController.text.padLeft(2, '0')}";
     String toTime = "${toHour.toString().padLeft(2, '0')}:${toMinuteController.text.padLeft(2, '0')}";
 
+    // ===== Upsert into SQLite (same fields as before, names aligned with Task model) =====
     final task = Task(
       id: widget.taskId,
       title: taskName,
@@ -288,31 +324,31 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       beforeMediumAlert: isBeforeMediumAlert,
       afterLoudAlert: isAfterLoudAlert,
       afterMediumAlert: isAfterMediumAlert,
-      alertBefore: selectedBefore,
-      alertAfter: selectedAfter,
-      taskCompletionDates: taskCompletionDates,
+      selectedBefore: selectedBefore,  // <-- NOTE: selectedBefore
+      selectedAfter: selectedAfter,    // <-- NOTE: selectedAfter
+      taskCompletionDates: taskCompletionDates.cast<String>(),
       taskScheduleddate: DateFormat('d MM yyyy').format(DateTime.now()),
     );
-    box.put(widget.taskId, task); 
-    toast(widget.isEdit? "Task Edited" : "Task Added");
+
+    await _taskRepo.upsert(task);
+
+    toast(widget.isEdit ? "Task Edited" : "Task Added");
     _navigateToHome();
   }
 
   void _navigateToHome() {
     setState(() {
-      leftOffset = MediaQuery.of(context).size.width; // Adjust this value as needed for your animation
+      leftOffset = MediaQuery.of(context).size.width;
     });
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 600),
         pageBuilder: (_, __, ___) => TaskScreen(),
         transitionsBuilder: (_, animation, __, child) {
-          // Horizontal slide from left to right
           final tween = Tween<Offset>(
-            begin: const Offset(-1.0, 0.0), // Start offscreen from the left
-            end: Offset.zero,               // Slide into position
+            begin: const Offset(-1.0, 0.0),
+            end: Offset.zero,
           ).chain(CurveTween(curve: Curves.easeInOut));
-  
           return SlideTransition(
             position: animation.drive(tween),
             child: child,
@@ -322,14 +358,13 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     );
   }
 
-  void deletetask() {
-    final box = Hive.box<Task>('tasks');
-    box.delete(widget.taskId);
+  void deletetask() async {
+    await _taskRepo.delete(widget.taskId);
     toast("Task Deleted");
     _navigateToHome();
   }
-  
-  void showdateModify (DateTime picked) {
+
+  void showdateModify(DateTime picked) {
     setState(() {
       selectedDate = picked;
       date = DateFormat('d MM yyyy').format(selectedDate!);
@@ -347,7 +382,6 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       for (int i = 0; i < _selectedDays.length; i++) {
         _selectedDays[i] = false;
       }
-
     });
   }
 
@@ -362,14 +396,14 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: ColorScheme.dark(
-              primary: Color(0xFFFED289), // header background color
-              onPrimary: Colors.black, // header text color
-              onSurface: Colors.white, // body text color
+              primary: Color(0xFFFED289),
+              onPrimary: Colors.black,
+              onSurface: Colors.white,
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
-                foregroundColor: Color(0xFFFED289), // button text color
-                backgroundColor: Color(0xFF2B2E3C)
+                foregroundColor: Color(0xFFFED289),
+                backgroundColor: Color(0xFF2B2E3C),
               ),
             ),
           ),
@@ -382,6 +416,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       showdateModify(picked);
     }
   }
+
   List indexList = [];
   void daySelection(int index) {
     setState(() {
@@ -394,6 +429,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       indexList.sort();
     });
   }
+
   getDayName(int index) {
     switch (index) {
       case 0:
@@ -414,6 +450,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         return "";
     }
   }
+
   void updateShowDate() {
     for (int i = 0; i < indexList.length; i++) {
       if (i == 0) {
@@ -440,17 +477,18 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       });
     }
   }
-  
-  void GestDetect () {
+
+  void GestDetect() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
   }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onTap: () => GestDetect(),
-        child: Scaffold(
-      backgroundColor: const Color(0xFF313036),
-      body: Stack(
+      onTap: () => GestDetect(),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF313036),
+        body: Stack(
           children: [
             AnimatedPositioned(
               duration: const Duration(milliseconds: 600),
@@ -478,10 +516,10 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           const SizedBox(width: 16),
                           Material(
                             color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(30), // ← Missing comma added
+                            borderRadius: BorderRadius.circular(30),
                             child: InkWell(
                               onTap: () => _navigateToHome(),
-                              borderRadius: BorderRadius.circular(30), // Optional: for ripple to match shape
+                              borderRadius: BorderRadius.circular(30),
                               child: const Image(
                                 image: AssetImage("assets/addTaskArrowBack.png"),
                                 width: 35,
@@ -490,14 +528,15 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                           Text(
-                              widget.isEdit ? "Edit Task" : "Add Task",
-                              style: TextStyle(
-                                color: Color(0xFFF4F4F5),
-                                fontFamily: 'Poppins',
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                              )),
+                          Text(
+                            widget.isEdit ? "Edit Task" : "Add Task",
+                            style: TextStyle(
+                              color: Color(0xFFF4F4F5),
+                              fontFamily: 'Poppins',
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -514,14 +553,14 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () => { _selectDate(context)   }, // Optional: for ripple to match shape
+                              onTap: () => {_selectDate(context)},
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Flexible(
                                     child: Text(
                                       showDate,
-                                      overflow: TextOverflow.ellipsis, // adds "..." at the end if it's too long
+                                      overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
                                       style: const TextStyle(
                                         color: Color(0xFFEBFAF9),
@@ -531,7 +570,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8), // optional spacing
+                                  const SizedBox(width: 8),
                                   const Image(
                                     image: AssetImage("assets/calender_icon.png"),
                                     width: 35,
@@ -552,9 +591,9 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap: () {
-                                    setState(() { 
+                                    setState(() {
                                       _selectedDays[index] = !_selectedDays[index];
-                                      daySelection(index); 
+                                      daySelection(index);
                                     });
                                     updateShowDate();
                                   },
@@ -573,7 +612,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                         day,
                                         style: TextStyle(
                                           color: index == 6
-                                              ? const Color(0xFFD11E1E) // Sunday in red
+                                              ? const Color(0xFFD11E1E)
                                               : const Color(0xFFEBFAF9),
                                           fontSize: 20,
                                           fontWeight: FontWeight.w500,
@@ -618,7 +657,6 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                               ],
                             ),
                           ),
-                          
                           const SizedBox(height: 24),
                           Row(
                             children: [
@@ -636,11 +674,10 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                   checkColor: Colors.black,
                                 ),
                               ),
-                              const SizedBox(width: 19), 
+                              const SizedBox(width: 19),
                               _buildLabel("Mark As Important"),
                             ],
                           ),
-
                           const SizedBox(height: 24),
                           _buildLabel("Location"),
                           const SizedBox(height: 16),
@@ -667,7 +704,6 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                 selectedAfter,
                                 (val) => setState(() => selectedAfter = val!),
                               ),
-                              
                             ],
                           ),
                           const SizedBox(height: 20),
@@ -676,7 +712,9 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: () { submitTask();},
+                                onTap: () {
+                                  submitTask();
+                                },
                                 borderRadius: BorderRadius.circular(25),
                                 child: Container(
                                   height: 56,
@@ -700,12 +738,14 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                         ),
                                         const SizedBox(width: 5),
                                         Image(
-                                          image: widget.isEdit ? AssetImage("assets/editIcon.png"): AssetImage("assets/addTaskIcon.png"), 
-                                          width: 30, 
-                                          height: 30
+                                          image: widget.isEdit
+                                              ? AssetImage("assets/editIcon.png")
+                                              : AssetImage("assets/addTaskIcon.png"),
+                                          width: 30,
+                                          height: 30,
                                         )
                                       ],
-                                    )
+                                    ),
                                   ),
                                 ),
                               ),
@@ -714,12 +754,10 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                         ],
                       ),
                     ),
-                    if(widget.isEdit)  
+                    if (widget.isEdit)
                       Material(
                         child: InkWell(
-                          onTap: () => {
-                            deletetask()
-                          },
+                          onTap: () => {deletetask()},
                           child: Container(
                             width: double.infinity,
                             height: 64,
@@ -751,7 +789,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                 ),
                               ],
                             ),
-                          )
+                          ),
                         ),
                       )
                   ],
@@ -786,46 +824,47 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       child: Align(
         alignment: Alignment.centerLeft,
         child: TextField(
-        controller: fieldType == "taskName" ? taskNameController
-                    : fieldType == "location" ? locationController
-                    : subTaskController,
-        onChanged: (value) {
-          setState(() {
-            if (fieldType == "taskName") {
-              taskName = value;
-            } else if (fieldType == "location") {
-              location = value;
-            } else if (fieldType == "subTask") {
-              subTask = value;
-            }
-          });
-        },
-        cursorColor: Colors.black,
-        style: const TextStyle(
-          color: Color(0xFF1B1A1E),
-          fontSize: 20,
-          fontWeight: FontWeight.w400,
-          fontFamily: 'Poppins',
-          ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(
-            color: Color(0xFF82808E),
+          controller: fieldType == "taskName"
+              ? taskNameController
+              : fieldType == "location"
+                  ? locationController
+                  : subTaskController,
+          onChanged: (value) {
+            setState(() {
+              if (fieldType == "taskName") {
+                taskName = value;
+              } else if (fieldType == "location") {
+                location = value;
+              } else if (fieldType == "subTask") {
+                subTask = value;
+              }
+            });
+          },
+          cursorColor: Colors.black,
+          style: const TextStyle(
+            color: Color(0xFF1B1A1E),
             fontSize: 20,
             fontWeight: FontWeight.w400,
             fontFamily: 'Poppins',
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(
+              color: Color(0xFF82808E),
+              fontSize: 20,
+              fontWeight: FontWeight.w400,
+              fontFamily: 'Poppins',
             ),
-          border: InputBorder.none,
+            border: InputBorder.none,
+          ),
         ),
-      ),
       ),
     );
   }
 
-  // ignore: non_constant_identifier_names
   void am_pmDialog(String label) {
-    if(label == "From") {
-      if(fromperiod == "A.M") {
+    if (label == "From") {
+      if (fromperiod == "A.M") {
         setState(() {
           fromperiod = "P.M";
         });
@@ -835,7 +874,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         });
       }
     } else {
-      if(toperiod == "A.M") {
+      if (toperiod == "A.M") {
         setState(() {
           toperiod = "P.M";
         });
@@ -846,7 +885,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       }
     }
   }
- 
+
   Widget _buildTimePicker(String label) {
     return Row(
       children: [
@@ -885,14 +924,16 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                 _buildDigitField(
+                  _buildDigitField(
                     controller: label == "From" ? fromHourController : toHourController,
                     textFieldFocusNode: label == "From" ? fromHourFocus : toHourFocus,
                     rawKeyFocusNode: label == "From" ? fromHourRawFocus : toHourRawFocus,
                     onChanged: (value) {
                       int val = int.tryParse(value) ?? 0;
                       if (val > 1 && val < 10) {
-                        if(value.length<2){value = "0$value";}
+                        if (value.length < 2) {
+                          value = "0$value";
+                        }
                         TextEditingController targetController =
                             label == "From" ? fromHourController : toHourController;
                         targetController.text = value;
@@ -909,7 +950,6 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                       }
                     },
                     onBackspacePressed: () {
-                      // If the field is empty and user hits backspace, go back to previous field
                       if (label == "From") {
                         fromMinuteFocus.unfocus();
                       } else {
@@ -952,7 +992,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                 ],
               ),
             ),
-            SizedBox(height: 5,),
+            SizedBox(height: 5),
             Material(
               color: Colors.transparent,
               child: InkWell(
@@ -961,90 +1001,89 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                 },
                 borderRadius: BorderRadius.all(Radius.circular(5)),
                 child: Container(
-                height: 31,
-                width: 94,
-                decoration: BoxDecoration(
-                  color:  label == "From" ? (fromperiod == "A.M" ? Color(0xFF268D8C) : const Color(0xFFFED289)) : (toperiod == "A.M" ? Color(0xFF268D8C) : const Color(0xFFFED289)),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image(image: AssetImage("assets/updown.png"), width: 21, height: 21),
-                      const SizedBox(width: 8.41),
-                      Text(
-                        label == "From" ? fromperiod : toperiod,
-                        style: const TextStyle(
-                          color: Color(0xFF0D0C10),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          fontFamily: 'Quantico',
+                  height: 31,
+                  width: 94,
+                  decoration: BoxDecoration(
+                    color: label == "From"
+                        ? (fromperiod == "A.M" ? Color(0xFF268D8C) : const Color(0xFFFED289))
+                        : (toperiod == "A.M" ? Color(0xFF268D8C) : const Color(0xFFFED289)),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image(image: AssetImage("assets/updown.png"), width: 21, height: 21),
+                        const SizedBox(width: 8.41),
+                        Text(
+                          label == "From" ? fromperiod : toperiod,
+                          style: const TextStyle(
+                            color: Color(0xFF0D0C10),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            fontFamily: 'Quantico',
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-              ),
             ),
-            
           ],
         ),
-        
       ],
     );
   }
 
   Widget _buildDigitField({
-  required TextEditingController controller,
-  required FocusNode textFieldFocusNode, // for TextField
-  required FocusNode rawKeyFocusNode,    // for RawKeyboardListener
-  required void Function(String) onChanged,
-  required VoidCallback onBackspacePressed,
-}) {
-  return SizedBox(
-    width: 46,
-    height: 33,
-    child: RawKeyboardListener(
-      focusNode: rawKeyFocusNode, // ✅ CORRECT focus node for RawKeyboardListener
-      onKey: (RawKeyEvent event) {
-        if (event is RawKeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.backspace) {
-          if (controller.text.isEmpty) {
-            onBackspacePressed(); // ✅ Call your handler
+    required TextEditingController controller,
+    required FocusNode textFieldFocusNode,
+    required FocusNode rawKeyFocusNode,
+    required void Function(String) onChanged,
+    required VoidCallback onBackspacePressed,
+  }) {
+    return SizedBox(
+      width: 46,
+      height: 33,
+      child: RawKeyboardListener(
+        focusNode: rawKeyFocusNode,
+        onKey: (RawKeyEvent event) {
+          if (event is RawKeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace) {
+            if (controller.text.isEmpty) {
+              onBackspacePressed();
+            }
           }
-        }
-      },
-      child: TextField(
-        controller: controller,
-        focusNode: textFieldFocusNode, // ✅ CORRECT focus node for TextField
-        onChanged: onChanged,
-        cursorColor: Colors.black,
-        keyboardType: TextInputType.number,
-        maxLength: 2,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          fontFamily: 'Quantico',
-        ),
-        textAlign: TextAlign.center,
-        decoration: const InputDecoration(
-          hintText: '00',
-          counterText: '',
-          hintStyle: TextStyle(
-            color: Color(0xFF82808E),
+        },
+        child: TextField(
+          controller: controller,
+          focusNode: textFieldFocusNode,
+          onChanged: onChanged,
+          cursorColor: Colors.black,
+          keyboardType: TextInputType.number,
+          maxLength: 2,
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w400,
             fontFamily: 'Quantico',
           ),
-          border: InputBorder.none,
+          textAlign: TextAlign.center,
+          decoration: const InputDecoration(
+            hintText: '00',
+            counterText: '',
+            hintStyle: TextStyle(
+              color: Color(0xFF82808E),
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              fontFamily: 'Quantico',
+            ),
+            border: InputBorder.none,
+          ),
         ),
       ),
-    ),
-  );
-}
- 
+    );
+  }
+
   Widget _buildTag(String text) {
     return Material(
       color: Colors.transparent,
@@ -1052,7 +1091,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         onTap: () {
           setState(() {
             selectedTag = text;
-            _tagFocusNode.unfocus(); 
+            _tagFocusNode.unfocus();
             tagController.clear();
           });
         },
@@ -1079,50 +1118,50 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   }
 
   Widget _buildTagAdder() {
-  final bool showBackground = _tagFocusNode.hasFocus && selectedTag.isNotEmpty;
+    final bool showBackground = _tagFocusNode.hasFocus && selectedTag.isNotEmpty;
 
-  return Container(
-    height: 27,
-    padding: const EdgeInsets.only(left: 8, right: 8, top: 1.5, bottom: 1.5),
-    decoration: BoxDecoration(
-      color: showBackground ? const Color(0xFFFED189) : Colors.transparent,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: const Color(0xFFFED289), width: 1),
-    ),
-    child: IntrinsicWidth(
-      child: TextField(
-        focusNode: _tagFocusNode,
-        controller: tagController,
-        cursorHeight: 15,
-        cursorColor: showBackground ? const Color(0xFF1B1A1E) : const Color(0xFFFED289),
-        maxLines: 1,
-        style: const TextStyle(
-          fontFamily: 'Poppins',
-          fontSize: 18,
-          fontWeight: FontWeight.w300,
-          color: Color(0xFF1B1A1E),
-        ),
-        decoration: const InputDecoration(
-          isDense: true,
-          contentPadding: EdgeInsets.symmetric(vertical: 4),
-          hintText: "+Add...",
-          hintStyle: TextStyle(
+    return Container(
+      height: 27,
+      padding: const EdgeInsets.only(left: 8, right: 8, top: 1.5, bottom: 1.5),
+      decoration: BoxDecoration(
+        color: showBackground ? const Color(0xFFFED189) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFED289), width: 1),
+      ),
+      child: IntrinsicWidth(
+        child: TextField(
+          focusNode: _tagFocusNode,
+          controller: tagController,
+          cursorHeight: 15,
+          cursorColor: showBackground ? const Color(0xFF1B1A1E) : const Color(0xFFFED289),
+          maxLines: 1,
+          style: const TextStyle(
             fontFamily: 'Poppins',
             fontSize: 18,
             fontWeight: FontWeight.w300,
-            color: Color(0xFFFEE5BD),
+            color: Color(0xFF1B1A1E),
           ),
-          border: InputBorder.none,
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(vertical: 4),
+            hintText: "+Add...",
+            hintStyle: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 18,
+              fontWeight: FontWeight.w300,
+              color: Color(0xFFFEE5BD),
+            ),
+            border: InputBorder.none,
+          ),
+          onChanged: (value) => setState(() => selectedTag = value),
+          onTap: () => setState(() => selectedTag = ""),
         ),
-        onChanged: (value) => setState(() => selectedTag = value),
-        onTap: () => setState(() => selectedTag = ""),
       ),
-    ),
-  );
-}
+    );
+  }
 
-
-  Widget _buildDropdown(String label, List<String> items, String value, void Function(String?) onChanged) {
+  Widget _buildDropdown(
+      String label, List<String> items, String value, void Function(String?) onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1220,7 +1259,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                       fontWeight: FontWeight.w400,
                     ),
                     icon: Image.asset(
-                      'assets/dropDownArrow.png', 
+                      'assets/dropDownArrow.png',
                       width: 24,
                       height: 24,
                     ),
@@ -1233,11 +1272,10 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                     onChanged: onChanged,
                   ),
                 ),
-              )
+              ),
             ),
           ],
         ),
-        
       ],
     );
   }

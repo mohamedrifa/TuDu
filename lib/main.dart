@@ -3,24 +3,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
-import 'database/hive_service.dart';
-import 'notification_service/notification_service.dart'; 
+import 'models/settings.dart';
+import 'notification_service/notification_service.dart';
 import 'notification_service/alarm_screen.dart';
-
+import 'data/app_database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final appDocumentDir = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocumentDir.path);
-  await HiveService.init();
+  if (!Hive.isAdapterRegistered(SettingsAdapter().typeId)) {
+    Hive.registerAdapter(SettingsAdapter());
+  }
+  await Hive.openBox<AppSettings>('settings');
+  await AppDatabase.instance.database;
   await AndroidAlarmManager.initialize();
-  await MediumNotification().initNotification(); 
-  runApp(MyApp());
+  await MediumNotification().initNotification();
+
+  runApp(const MyApp());
 }
 
-
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
   static final navKey = GlobalKey<NavigatorState>();
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -29,44 +35,49 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       initialRoute: '/',
       routes: {
-        '/lockscreen': (context) => AlarmScreen(title: 'testing', description: 'module',),
-        '/': (context) => FullScreenPage(),
+        '/lockscreen': (context) =>
+            const AlarmScreen(title: 'testing', description: 'module'),
+        '/': (context) => const FullScreenPage(),
       },
     );
   }
 }
 
-class AlarmService {
-  static const MethodChannel _channel = MethodChannel('custom.alarm.channel');
-  static Future<void> scheduleAlarm() async {
-    try {
-      await _channel.invokeMethod('scheduleAlarm');
-    } catch (e) {
-      print('❌ Failed to call native alarm: $e');
-    }
-  }
-}
-
 class FullScreenPage extends StatelessWidget {
+  const FullScreenPage({super.key});
+
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent, // No background
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [SystemUiOverlay.top],
+    );
+    return const AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
         extendBodyBehindAppBar: true,
-        backgroundColor: Colors.black, // Use a solid color
-        body: MediaQuery.removeViewPadding(
-          context: context,
-          removeTop: true, // ✅ This removes the gap
-          child: NotificationScreen(), // or whatever your content is
-        ),
+        backgroundColor: Colors.black,
+        body: _BodyWrapper(),
       ),
     );
   }
-} 
+}
+
+class _BodyWrapper extends StatelessWidget {
+  const _BodyWrapper();
+
+  @override
+  Widget build(BuildContext context) {
+    // removes the top padding so your screen is truly fullscreen
+    return MediaQuery.removeViewPadding(
+      context: context,
+      removeTop: true,
+      child: const NotificationScreen(), // your existing screen
+    );
+  }
+}
