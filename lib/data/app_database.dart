@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';             // 👈 add this
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -8,20 +9,21 @@ class AppDatabase {
 
   Database? _db;
 
+  // 👇 Channel for sending the DB path to Android/Kotlin
+  static const MethodChannel _meta = MethodChannel('app.db.meta');
+
   Future<Database> get database async {
     if (_db != null) return _db!;
 
     final dir = await getApplicationDocumentsDirectory();
-    final path = p.join(dir.path, 'app.db');
+    final path = p.join(dir.path, 'app.db');        // <- this is the file Kotlin should open
 
     _db = await openDatabase(
       path,
       version: 1,
       onConfigure: (db) async {
-        // Safe pragmas
         await db.execute('PRAGMA foreign_keys = ON');
-
-        // journal_mode returns a row, so use rawQuery not execute
+        // journal_mode returns a row; use rawQuery (as you did)
         await db.rawQuery('PRAGMA journal_mode = WAL');
       },
       onCreate: (db, version) async {
@@ -48,15 +50,25 @@ class AppDatabase {
           );
         ''');
 
-        await db.execute(
-            'CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks(date);');
-        await db.execute(
-            'CREATE INDEX IF NOT EXISTS idx_tasks_from_time ON tasks(from_time);');
-        await db.execute(
-            'CREATE INDEX IF NOT EXISTS idx_tasks_to_time ON tasks(to_time);');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks(date);');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_from_time ON tasks(from_time);');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_to_time ON tasks(to_time);');
       },
     );
 
+    // ✅ Send the actual DB path to Kotlin, so native code opens the same file
+    try {
+      await _meta.invokeMethod('dbPath', {'path': _db!.path});
+    } catch (_) {
+      // Don't crash the app if native side isn't ready yet
+    }
+
     return _db!;
+  }
+
+  /// Optional helper if you ever need the path in Dart again
+  Future<String> get path async {
+    final dir = await getApplicationDocumentsDirectory();
+    return p.join(dir.path, 'app.db');
   }
 }

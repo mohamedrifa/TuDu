@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
@@ -23,10 +24,12 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class NotificationService extends State<NotificationScreen> {
+  static const _notif = MethodChannel('app.notifications');
   Future<void> scheduleAlarmEveryMinute() async {
     const int alarmId = 1;
     const Duration interval = Duration(minutes: 1);
     print("⏰ Scheduling periodic alarm every minute");
+    await _notif.invokeMethod('scheduleAlarmEveryMinute');
     await AndroidAlarmManager.periodic(
       interval,
       alarmId,
@@ -223,6 +226,7 @@ class NotificationService extends State<NotificationScreen> {
   }
 
   Future<void> stopPeriodicAlarm() async {
+    await _notif.invokeMethod('stopPeriodicAlarm');
     const int alarmId = 1; // Must match the ID used in scheduleAlarmEveryMinute
     final success = await AndroidAlarmManager.cancel(alarmId);
     if (success) {

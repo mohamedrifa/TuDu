@@ -4,8 +4,6 @@ import 'package:hive_flutter/hive_flutter.dart';              // ✅ still used 
 import 'package:tudu/models/settings.dart';
 import '../notification_service/notification_service.dart';
 import '../widgets/task_card.dart';
-// import '../models/task.dart';                               // ❌ remove Hive Task
-// import '../database/hive_service.dart';                     // ❌ remove Hive service for tasks
 import 'task_adding_screen.dart';
 import 'package:intl/intl.dart';
 import '../widgets/quickLinks.dart';
@@ -13,8 +11,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import 'dart:io';
-
-// ✅ SQLite-backed model & repo (add these)
 import '../data/task_model.dart';
 import '../data/task_repository.dart';
 
