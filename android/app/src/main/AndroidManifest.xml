@@ -1,16 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.tudu">
 
+    <!-- Permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:label="tudu"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
 
+        <!-- Full-screen alarm UI -->
         <activity
             android:name=".LockScreenActivity"
             android:exported="true"
@@ -19,6 +22,7 @@
             android:turnScreenOn="true"
             android:theme="@style/Theme.Transparent" />
 
+        <!-- Main Flutter activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -35,27 +39,30 @@
                 android:resource="@style/NormalTheme" />
 
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- Background worker -->
         <service
             android:name=".TaskCheckService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
+        <!-- Minute tick receiver (private) -->
         <receiver
             android:name=".TaskTickReceiver"
             android:enabled="true"
             android:exported="false" />
 
+        <!-- One-shot alarm receiver (private) -->
         <receiver
             android:name=".AlarmReceiver"
             android:enabled="true"
             android:exported="false" />
 
-        <!-- Plugin components (kept, except reboot receiver) -->
+        <!-- android_alarm_manager_plus (keep exactly once) -->
         <service
             android:name="dev.fluttercommunity.plus.androidalarmmanager.AlarmService"
             android:permission="android.permission.BIND_JOB_SERVICE"
@@ -63,8 +70,18 @@
         <receiver
             android:name="dev.fluttercommunity.plus.androidalarmmanager.AlarmBroadcastReceiver"
             android:exported="true" />
+        <!-- Present but disabled so plugin can toggle it without crashing -->
+        <receiver
+            android:name="dev.fluttercommunity.plus.androidalarmmanager.RebootBroadcastReceiver"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.REBOOT" />
+            </intent-filter>
+        </receiver>
 
-        <!-- Your reboot handler (use this instead of the plugin's reboot receiver) -->
+        <!-- Your reboot/time-change rescheduler -->
         <receiver
             android:name=".BootCompletedReceiver"
             android:enabled="true"
@@ -85,8 +102,8 @@
 
     <queries>
         <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
         </intent>
     </queries>
 </manifest>

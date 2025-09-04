@@ -8,15 +8,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-
-import android.app.AlarmManager
-import android.app.PendingIntent
-import android.os.SystemClock
-import android.os.Bundle
-import io.flutter.embedding.android.FlutterActivity
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
-
 class TaskCheckService : JobIntentService() {
 
     companion object {
@@ -89,12 +80,7 @@ class TaskCheckService : JobIntentService() {
                         )
                     }
                     if (task.beforeLoudAlert) {
-                        Notifier.show(
-                            this,
-                            title = "Reminder",
-                            text = "Loud: ${task.title}",
-                            id = 2000 + (task.idBase % 900000)
-                        )
+                        AlarmUi.showBeforeLoud(this, task)
                     }
                 }
             }
@@ -121,12 +107,7 @@ class TaskCheckService : JobIntentService() {
                         )
                     }
                     if (task.afterLoudAlert) {
-                        Notifier.show(
-                            this,
-                            title = "Reminder",
-                            text = "Overdue: ${task.title}",
-                            id = 4000 + (task.idBase % 900000)
-                        )
+                        AlarmUi.showAfterLoud(this, task)
                     }
                 }
             }
@@ -156,23 +137,5 @@ class TaskCheckService : JobIntentService() {
             val idx = (Calendar.getInstance().get(Calendar.DAY_OF_WEEK) + 5) % 7
             weekDays.getOrNull(idx) == true
         }
-    }
-
-    private fun scheduleAlarm() {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AlarmReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val triggerAt = SystemClock.elapsedRealtime() + 10_000 // 10 seconds from now
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.ELAPSED_REALTIME_WAKEUP,
-            triggerAt,
-            pendingIntent
-        )
     }
 }
