@@ -8,9 +8,12 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tudu/main.dart';
 import 'package:tudu/screens/onboarding_screen.dart';
+import 'package:vibration/vibration.dart';
+import 'package:volume_controller/volume_controller.dart';
 import '../models/settings.dart';
 import '../models/task.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'alarm_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -164,7 +167,10 @@ class NotificationService extends State<NotificationScreen> {
             );
           }
           if(filteredTasks[i].beforeLoudAlert) {
-           AlarmService.scheduleAlarm();
+            FullScreenNotification().showNotification(
+              filteredTasks[i],
+              Message,
+            );
           }
         }
       }
@@ -204,7 +210,10 @@ class NotificationService extends State<NotificationScreen> {
             );
           }
           if(filteredTasks[i].afterLoudAlert) {
-            AlarmService.scheduleAlarm();
+            FullScreenNotification().showNotification(
+              filteredTasks[i],
+              Message,
+            );
           }
         }
       }
@@ -272,7 +281,6 @@ class MediumNotification {
 
         if (response.actionId == 'action_1') {
           print('✅ Later button pressed');
-          // Optional: Add snooze/reschedule logic
         } else if (response.actionId == 'action_2') {
           print('✅ Go button pressed');
           if (task != null) {
@@ -366,5 +374,194 @@ class MediumNotification {
     } else {
       await player.play(AssetSource('audio/medium.mp3'));
     }
+  }
+}
+
+
+class FullScreenNotification {
+  FullScreenNotification._privateConstructor();
+  static final FullScreenNotification _instance =
+      FullScreenNotification._privateConstructor();
+  factory FullScreenNotification() => _instance;
+
+  final FlutterLocalNotificationsPlugin notificationPlugin =
+      FlutterLocalNotificationsPlugin();
+  final AudioPlayer player = AudioPlayer();
+  String taskId = "";
+  bool _listening = false;
+
+  Future<void> initNotification(BuildContext context) async {
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidSettings);
+
+    await notificationPlugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) async {
+        player.stop();
+        String? idFromPayload = response.payload;
+        if (idFromPayload == null) return;
+
+        // ✅ Ensure Hive is ready
+        if (!Hive.isBoxOpen('tasks')) {
+          await Hive.initFlutter();
+          if (!Hive.isAdapterRegistered(0)) {
+            Hive.registerAdapter(TaskAdapter()); // 👈 use your Task typeId
+          }
+          await Hive.openBox<Task>('tasks');
+        }
+
+        final box = Hive.box<Task>('tasks');
+        final task = box.get(idFromPayload);
+
+        if (response.actionId == 'action_1') {
+          debugPrint('Later pressed');
+          cancelNotification();
+        } else if (response.actionId == 'action_2') {
+          debugPrint('Go pressed');
+          if (task != null) {
+            String date =
+                DateFormat('d EEE MMM yyyy').format(DateTime.now());
+            task.taskCompletionDates.add(date);
+            await box.put(idFromPayload, task);
+
+            await notificationPlugin.show(
+              9999,
+              'Task Started',
+              '${task.title} marked as completed!',
+              _simpleNotificationDetails(),
+            );
+          }
+          cancelNotification();
+        } else {
+          debugPrint('Notification tapped');
+        }
+
+        // ✅ Navigate to AlarmScreen regardless
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => AlarmScreen(
+              title: task?.title ?? "Loud Alarm",
+              description: "It’s time to start your task.",
+            ),
+          ),
+        );
+
+        cancelNotification();
+      },
+    );
+  }
+
+  NotificationDetails _notificationDetails() {
+    return const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'loud_alarm_channel',
+        'Loud Alarms',
+        channelDescription: 'Channel for loud fullscreen alarms',
+        importance: Importance.max,
+        priority: Priority.max,
+        playSound: false,
+        fullScreenIntent: true,
+        category: AndroidNotificationCategory.alarm,
+        enableVibration: true,
+        enableLights: true,
+        ongoing: true,
+        autoCancel: false,
+        visibility: NotificationVisibility.public,
+        actions: <AndroidNotificationAction>[
+          AndroidNotificationAction(
+            'action_1',
+            'Later',
+            showsUserInterface: true,
+            cancelNotification: false,
+          ),
+          AndroidNotificationAction(
+            'action_2',
+            'Go',
+            showsUserInterface: true,
+            cancelNotification: false,
+          ),
+        ],
+      ),
+    );
+  }
+
+  NotificationDetails _simpleNotificationDetails() {
+    return const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'simple_channel',
+        'Simple',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      ),
+    );
+  }
+
+  Future<void> showNotification(Task task, String message) async {
+    taskId = task.id;
+    int id = int.parse(task.id) % 2147483647;
+
+    await notificationPlugin.show(
+      id,
+      task.title,
+      "$message${task.title}",
+      _notificationDetails(),
+      payload: task.id,
+    );
+
+    ringtoneHandler();
+    _startListening();
+  }
+  Future<void> stopAlarm() async {
+    try {
+      await player.stop();
+    } catch (e) {
+      debugPrint("Error stopping alarm sound: $e");
+    }
+  }
+
+  void startRepeatedVibration() async {
+    bool? hasVibrator = await Vibration.hasVibrator();
+    if (hasVibrator) {
+        Vibration.vibrate(
+          pattern: [500, 1000, 500, 1000], // vibrate, pause, vibrate, pause
+          repeat: 0, // repeat indefinitely from index 0
+      );
+    }
+  }
+
+  void _startListening() {
+    if (!_listening) {
+      VolumeController().listener((volume) {
+        stopEffect();
+      });
+      _listening = true;
+    }
+  }
+
+  void stopEffect() {
+    Vibration.cancel();
+    player.stop();
+  }
+
+  Future<void> ringtoneHandler() async {
+    if (Hive.isBoxOpen('settings')) {
+      await Hive.box<AppSettings>('settings').close();
+    }
+    final settingsBox = await Hive.openBox<AppSettings>('settings');
+    final userSettings = settingsBox.get('userSettings');
+    final tonePath = userSettings?.loudAlertTone;
+    startRepeatedVibration();
+    await player.setReleaseMode(ReleaseMode.loop);
+    if (tonePath != null && tonePath.isNotEmpty) {
+      await player.play(DeviceFileSource(tonePath));
+    } else {
+      await player.play(AssetSource('audio/loud.mp3'));
+    }
+  }
+
+  Future<void> cancelNotification () async {
+    await notificationPlugin.cancelAll();
+    stopEffect();
   }
 }

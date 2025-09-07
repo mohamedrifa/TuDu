@@ -18,23 +18,55 @@ void main() async {
   runApp(MyApp());
 }
 
+class MyApp extends StatefulWidget {
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
 
-class MyApp extends StatelessWidget {
-  static final navKey = GlobalKey<NavigatorState>();
+class _MyAppState extends State<MyApp> {
+  Widget? _startPage;
+
+  @override
+  void initState() {
+    super.initState();
+    _initNotifications();
+  }
+
+  Future<void> _initNotifications() async {
+    // Initialize notifications with context
+    await FullScreenNotification().initNotification(context);
+
+    // Check if app was launched from notification
+    final details =
+        await FullScreenNotification().notificationPlugin.getNotificationAppLaunchDetails();
+
+    if (details != null && details.didNotificationLaunchApp) {
+      if (details.notificationResponse?.payload != null) {
+        // ✅ Launch directly into AlarmScreen
+        _startPage = const AlarmScreen(
+          title: "Loud Alarm",
+          description: "It’s time to start your task.",
+        );
+      } else {
+        _startPage = FullScreenPage();
+      }
+    } else {
+      _startPage = FullScreenPage();
+    }
+
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fullscreen App',
-      navigatorKey: navKey,
-      debugShowCheckedModeBanner: false,
-      initialRoute: '/',
-      routes: {
-        '/lockscreen': (context) => AlarmScreen(title: 'testing', description: 'module',),
-        '/': (context) => FullScreenPage(),
-      },
+      title: 'Alarm App',
+      home: _startPage
     );
   }
 }
+
+
 
 class AlarmService {
   static const MethodChannel _channel = MethodChannel('custom.alarm.channel');

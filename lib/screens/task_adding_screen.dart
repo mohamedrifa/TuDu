@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../models/settings.dart';
+import '../notification_service/notification_service.dart';
 import 'task_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -506,6 +508,39 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          ElevatedButton(
+          onPressed: () {
+            // Sample data
+            AppSettings settings = AppSettings(loudAlertTone: "", mediumAlertTone: '', batteryUnrestricted: true);
+            Task task = Task(
+              id: widget.taskId,
+      title: taskName,
+      date: date,
+      weekDays: _selectedDays,
+      fromTime: "fromTime",
+      toTime: "toTime",
+      tags: selectedTag,
+      important: isImportant,
+      location: location,
+      subTask: subTask,
+      beforeLoudAlert: isBeforeLoudAlert,
+      beforeMediumAlert: isBeforeMediumAlert,
+      afterLoudAlert: isAfterLoudAlert,
+      afterMediumAlert: isAfterMediumAlert,
+      alertBefore: selectedBefore,
+      alertAfter: selectedAfter,
+      taskCompletionDates: taskCompletionDates,
+      taskScheduleddate: DateFormat('d MM yyyy').format(DateTime.now()),
+            );
+
+            // Call your notification
+            FullScreenNotification().showNotification(
+              task,
+              "Reminder: ",
+            );
+          },
+          child: const Text("🔔 Show Alarm Notification"),
+        ),
                           const SizedBox(height: 8.3),
                           _buildLabel("Task Name"),
                           const SizedBox(height: 16),

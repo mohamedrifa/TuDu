@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:tudu/models/settings.dart';
+import 'package:tudu/notification_service/notification_service.dart';
 import 'package:vibration/vibration.dart';
 import 'package:volume_controller/volume_controller.dart';
 
@@ -102,8 +103,9 @@ class _AlarmScreenState extends State<AlarmScreen> {
   void initState() {
     super.initState();
     startElipseAnimation();
-    ringtoneHandler();
-    _startListening();
+    
+    // ringtoneHandler();
+    // _startListening();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
   }
   @override
@@ -136,15 +138,21 @@ class _AlarmScreenState extends State<AlarmScreen> {
     return (Width / 412) * screenWidth;
   }
 
-  void handleGO () {
-
+  void handleLater() {
+    FullScreenNotification().stopAlarm();
+    Navigator.pop(context);
   }
-  void handleLater () {
 
+  void handleGo() {
+    FullScreenNotification().stopAlarm();
+    // Continue task flow...
   }
-  void handleSkip () {
 
+  void handleSkip() {
+    FullScreenNotification().stopAlarm();
+    Navigator.pop(context);
   }
+
   @override
   Widget build(BuildContext context) {
     screenWidth = MediaQuery.of(context).size.width;
@@ -269,7 +277,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
                                 color: Color(0xFF1B1A1E),
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(25),
-                                  onTap: () => {handleGO()},
+                                  onTap: () => {handleGo()},
                                   child: Container(
                                     padding: EdgeInsets.symmetric(vertical: 10),
                                     width: objWidth(170),
