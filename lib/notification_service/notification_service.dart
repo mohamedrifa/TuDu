@@ -5,16 +5,19 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:tudu/screens/onboarding_screen.dart';
-import '../models/settings.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 // ✅ SQLite-backed Task model & repository
 import '../data/task_model.dart';
 import '../data/task_repository.dart';
+
+// ✅ SQLite-backed AppSettings
+import '../data/app_settings_repository.dart';
+import '../data/app_settings_model.dart';
+import '../data/app_database.dart';
+
+import 'package:tudu/screens/onboarding_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -25,10 +28,11 @@ class NotificationScreen extends StatefulWidget {
 
 class NotificationService extends State<NotificationScreen> {
   static const _notif = MethodChannel('app.notifications');
+
   Future<void> scheduleAlarmEveryMinute() async {
     const int alarmId = 1;
     const Duration interval = Duration(minutes: 1);
-    print("⏰ Scheduling periodic alarm every minute");
+    debugPrint("⏰ Scheduling periodic alarm every minute");
     await _notif.invokeMethod('scheduleAlarmEveryMinute');
     await AndroidAlarmManager.periodic(
       interval,
@@ -40,22 +44,16 @@ class NotificationService extends State<NotificationScreen> {
     );
   }
 
+  /// Replaces the old Hive updater: stores batteryUnrestricted in SQLite
   Future<void> settingsUpdater() async {
-    final appDocDir = await getApplicationDocumentsDirectory();
-    Hive.init(appDocDir.path);
-    if (!Hive.isAdapterRegistered(SettingsAdapter().typeId)) {
-      Hive.registerAdapter(SettingsAdapter());
-    }
-    var settingsBox = await Hive.openBox<AppSettings>('settings');
-    AppSettings? currentSettings = settingsBox.get('userSettings');
-    if (currentSettings == null || !currentSettings.batteryUnrestricted) {
-      print("✅ alarm inside");
-      final updatedSettings = AppSettings(
-        mediumAlertTone: currentSettings?.mediumAlertTone ?? "",
-        loudAlertTone: currentSettings?.loudAlertTone ?? "",
-        batteryUnrestricted: true,
-      );
-      await settingsBox.put('userSettings', updatedSettings);
+    // Ensure DB is opened in this isolate (and path sent to Android)
+    await AppDatabase.instance.database;
+
+    final repo = AppSettingsRepository();
+    final cur = await repo.get();
+    if (!cur.batteryUnrestricted) {
+      await repo.setBatteryUnrestricted(true);
+      debugPrint("✅ batteryUnrestricted set in SQLite");
     }
   }
 
@@ -74,33 +72,34 @@ class NotificationService extends State<NotificationScreen> {
         final taskDate = DateFormat("d MM yyyy").parse(date);
         return DateFormat("d MM yyyy").format(taskDate) == DateFormat("d MM yyyy").format(now);
       } catch (e) {
-        print("❌ Error parsing task date: $e");
+        debugPrint("❌ Error parsing task date: $e");
         return false;
       }
     } else {
       // Handle recurring tasks
-      final dayOfWeekIndex = now.weekday - 1; // Dart: Mon = 1, ..., Sun = 7 → index 0-6
+      final dayOfWeekIndex = now.weekday - 1; // Mon=1..Sun=7 -> 0..6
       return weekDays[dayOfWeekIndex];
     }
   }
 
   Future<void> _handleAlarmCallback() async {
     WidgetsFlutterBinding.ensureInitialized();
-    print("✅ alarmCallback() triggered");
+    debugPrint("✅ alarmCallback() triggered");
 
-    // Hive only for AppSettings
-    await Hive.initFlutter();
+    // Ensure our DB is ready in this background isolate
+    await AppDatabase.instance.database;
+
+    // Update battery flag in SQLite (was Hive before)
     await settingsUpdater();
-    if (!Hive.isAdapterRegistered(SettingsAdapter().typeId)) {
-      Hive.registerAdapter(SettingsAdapter());
-    }
-    if (Hive.isBoxOpen('settings')) {
-      await Hive.box<AppSettings>('settings').close();
-    }
-    final settingsBox = await Hive.openBox<AppSettings>('settings');
-    final AppSettings? userSettings = await settingsBox.get('userSettings');
 
-    // ✅ Fetch tasks from SQLite instead of Hive
+    // Read AppSettings from SQLite
+    final settingsRepo = AppSettingsRepository();
+    AppSettingsDB userSettings = await settingsRepo.get();
+
+    // Prepare notifications plugin (safe to call repeatedly)
+    await MediumNotification().initNotification();
+
+    // ✅ Fetch tasks from SQLite
     final TaskRepository repo = SqliteTaskRepository();
     final List<Task> tasks = await repo.getAll();
 
@@ -113,17 +112,17 @@ class NotificationService extends State<NotificationScreen> {
             ))
         .toList();
 
-    print("outside forloop ${filteredTasks.length}");
+    debugPrint("outside forloop ${filteredTasks.length}");
     String Message = "";
 
     for (int i = 0; i < filteredTasks.length; i++) {
-      print("inside for loop");
-      DateFormat timeFormat = DateFormat("HH:mm");
-      DateTime parsedTime = timeFormat.parse(filteredTasks[i].fromTime);
+      debugPrint("inside for loop");
+      final timeFormat = DateFormat("HH:mm");
+      final parsedTime = timeFormat.parse(filteredTasks[i].fromTime);
 
       // Combine with today's date
-      DateTime now = DateTime.now();
-      DateTime todayTime = DateTime(
+      final now = DateTime.now();
+      final todayTime = DateTime(
         now.year,
         now.month,
         now.day,
@@ -132,7 +131,7 @@ class NotificationService extends State<NotificationScreen> {
       );
 
       // Subtract 1 minute
-      DateTime reducedTime = todayTime.subtract(const Duration(minutes: 1));
+      final reducedTime = todayTime.subtract(const Duration(minutes: 1));
 
       // BEFORE
       DateTime beforeTime;
@@ -151,30 +150,25 @@ class NotificationService extends State<NotificationScreen> {
           break;
         default:
           beforeTime = reducedTime;
+          Message = "Starting soon ";
       }
 
-      String nowStr = timeFormat.format(DateTime.now());
-      String beforeStr = timeFormat.format(beforeTime);
-      print("$nowStr and $beforeStr");
+      final nowStr = timeFormat.format(DateTime.now());
+      final beforeStr = timeFormat.format(beforeTime);
+      debugPrint("$nowStr and $beforeStr");
 
       if (beforeStr == nowStr) {
-        DateFormat nowFormat = DateFormat("d EEE MMM yyyy");
-        String nowDate = nowFormat.format(DateTime.now());
+        final nowDate = DateFormat("d EEE MMM yyyy").format(DateTime.now());
         if (!filteredTasks[i].taskCompletionDates.contains(nowDate)) {
           if (filteredTasks[i].beforeMediumAlert) {
-            MediumNotification().showNotification(
-              userSettings ??
-                  AppSettings(
-                    mediumAlertTone: '',
-                    loudAlertTone: '',
-                    batteryUnrestricted: true,
-                  ),
+            await MediumNotification().showNotification(
+              userSettings,
               filteredTasks[i],
               Message,
             );
           }
           if (filteredTasks[i].beforeLoudAlert) {
-            
+            // (Optional) trigger your full-screen/loud path here if you have one
           }
         }
       }
@@ -196,29 +190,24 @@ class NotificationService extends State<NotificationScreen> {
           break;
         default:
           afterTime = reducedTime;
+          Message = "Its Time to Start ";
       }
 
-      String afterStr = timeFormat.format(afterTime);
-      print("$nowStr and $afterStr");
+      final afterStr = timeFormat.format(afterTime);
+      debugPrint("$nowStr and $afterStr");
 
       if (afterStr == nowStr) {
-        DateFormat nowFormat = DateFormat("d EEE MMM yyyy");
-        String nowDate = nowFormat.format(DateTime.now());
+        final nowDate = DateFormat("d EEE MMM yyyy").format(DateTime.now());
         if (!filteredTasks[i].taskCompletionDates.contains(nowDate)) {
           if (filteredTasks[i].afterMediumAlert) {
-            MediumNotification().showNotification(
-              userSettings ??
-                  AppSettings(
-                    mediumAlertTone: '',
-                    loudAlertTone: '',
-                    batteryUnrestricted: true,
-                  ),
+            await MediumNotification().showNotification(
+              userSettings,
               filteredTasks[i],
               Message,
             );
           }
           if (filteredTasks[i].afterLoudAlert) {
-            
+            // (Optional) trigger your full-screen/loud path here if you have one
           }
         }
       }
@@ -227,12 +216,12 @@ class NotificationService extends State<NotificationScreen> {
 
   Future<void> stopPeriodicAlarm() async {
     await _notif.invokeMethod('stopPeriodicAlarm');
-    const int alarmId = 1; // Must match the ID used in scheduleAlarmEveryMinute
+    const int alarmId = 1; // Must match scheduleAlarmEveryMinute
     final success = await AndroidAlarmManager.cancel(alarmId);
     if (success) {
-      print('🛑 Periodic alarm canceled successfully');
+      debugPrint('🛑 Periodic alarm canceled successfully');
     } else {
-      print('⚠️ Failed to cancel periodic alarm');
+      debugPrint('⚠️ Failed to cancel periodic alarm');
     }
   }
 
@@ -247,7 +236,7 @@ class NotificationService extends State<NotificationScreen> {
 void alarmCallback() {
   // Always sync at top level
   DartPluginRegistrant.ensureInitialized();
-  print("✅ alarmCallback() entry");
+  debugPrint("✅ alarmCallback() entry");
   NotificationService()._handleAlarmCallback(); // async logic offloaded
 }
 
@@ -271,19 +260,19 @@ class MediumNotification {
     await notificationPlugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
-        player.stop();
+        await player.stop();
         final String? idFromPayload = response.payload;
         if (idFromPayload == null) return;
 
-        // ✅ Use SQLite repo to update the task instead of Hive
+        // ✅ Use SQLite repo to update the task
         final TaskRepository repo = SqliteTaskRepository();
         final Task? t = await repo.getById(idFromPayload);
 
         if (response.actionId == 'action_1') {
-          print('✅ Later button pressed');
+          debugPrint('✅ Later button pressed');
           // (Optional snooze logic)
         } else if (response.actionId == 'action_2') {
-          print('✅ Go button pressed');
+          debugPrint('✅ Go button pressed');
           if (t != null) {
             final date = DateFormat('d EEE MMM yyyy').format(DateTime.now());
             final dates = List<String>.from(t.taskCompletionDates);
@@ -311,7 +300,7 @@ class MediumNotification {
             );
 
             await repo.upsert(updated);
-            print("✅ Task updated in SQLite");
+            debugPrint("✅ Task updated in SQLite");
 
             // ✅ Show follow-up notification without action buttons
             await notificationPlugin.show(
@@ -321,10 +310,10 @@ class MediumNotification {
               _simpleNotificationDetails(),
             );
           } else {
-            print("⚠️ Task not found for ID: $idFromPayload");
+            debugPrint("⚠️ Task not found for ID: $idFromPayload");
           }
         } else {
-          print('✅ Notification body tapped');
+          debugPrint('✅ Notification body tapped');
         }
       },
     );
@@ -338,7 +327,7 @@ class MediumNotification {
         channelDescription: 'Channel for alarm notifications',
         importance: Importance.max,
         priority: Priority.high,
-        playSound: false,
+        playSound: false, // we play custom audio below
         enableVibration: true,
         enableLights: true,
         ongoing: true,
@@ -377,10 +366,11 @@ class MediumNotification {
     );
   }
 
-  Future<void> showNotification(AppSettings settings, Task tasks, String message) async {
+  /// Now accepts AppSettingsDB (SQLite) instead of Hive AppSettings
+  Future<void> showNotification(AppSettingsDB settings, Task tasks, String message) async {
     // Keep your "align to minute" logic
-    DateTime now = DateTime.now();
-    int currentSecond = now.second;
+    final now = DateTime.now();
+    final currentSecond = now.second;
     await Future.delayed(Duration(seconds: 60 - currentSecond));
 
     taskId = tasks.id;
@@ -400,6 +390,7 @@ class MediumNotification {
       payload: tasks.id,
     );
 
+    // Play chosen tone if present, otherwise default asset
     if (settings.mediumAlertTone.isNotEmpty) {
       await player.play(DeviceFileSource(settings.mediumAlertTone));
     } else {

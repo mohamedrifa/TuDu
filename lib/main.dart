@@ -1,21 +1,12 @@
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:path_provider/path_provider.dart';
-import 'models/settings.dart';
 import 'notification_service/notification_service.dart';
 import 'notification_service/alarm_screen.dart';
 import 'data/app_database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final appDocumentDir = await getApplicationDocumentsDirectory();
-  await Hive.initFlutter(appDocumentDir.path);
-  if (!Hive.isAdapterRegistered(SettingsAdapter().typeId)) {
-    Hive.registerAdapter(SettingsAdapter());
-  }
-  await Hive.openBox<AppSettings>('settings');
   await AppDatabase.instance.database;
   await AndroidAlarmManager.initialize();
   await MediumNotification().initNotification();

@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart';             // 👈 add this
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -9,26 +9,28 @@ class AppDatabase {
 
   Database? _db;
 
-  // 👇 Channel for sending the DB path to Android/Kotlin
+  // Sends the DB path to Android/Kotlin so native opens the same file
   static const MethodChannel _meta = MethodChannel('app.db.meta');
 
   Future<Database> get database async {
     if (_db != null) return _db!;
 
     final dir = await getApplicationDocumentsDirectory();
-    final path = p.join(dir.path, 'app.db');        // <- this is the file Kotlin should open
+    final path = p.join(dir.path, 'app.db');
 
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 3, // 👈 bump to trigger migration if an older DB exists
       onConfigure: (db) async {
-        await db.execute('PRAGMA foreign_keys = ON');
-        // journal_mode returns a row; use rawQuery (as you did)
+        // PRAGMA must use rawQuery with sqflite
+        await db.rawQuery('PRAGMA foreign_keys = ON');
         await db.rawQuery('PRAGMA journal_mode = WAL');
+        await db.rawQuery('PRAGMA busy_timeout = 3000');
       },
       onCreate: (db, version) async {
+        // ---- TASKS TABLE ----
         await db.execute('''
-          CREATE TABLE tasks (
+          CREATE TABLE IF NOT EXISTS tasks (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
             date TEXT NOT NULL,
@@ -50,23 +52,70 @@ class AppDatabase {
           );
         ''');
 
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks(date);');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_from_time ON tasks(from_time);');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_to_time ON tasks(to_time);');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks(date)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_from_time ON tasks(from_time)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_to_time ON tasks(to_time)');
+
+        // ---- APP SETTINGS TABLE ----
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS app_settings(
+            id INTEGER PRIMARY KEY CHECK (id=1),
+            medium_alert_tone TEXT,
+            loud_alert_tone TEXT,
+            battery_unrestricted INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT
+          );
+        ''');
+        // seed single row
+        await db.insert('app_settings', {'id': 1},
+            conflictAlgorithm: ConflictAlgorithm.ignore);
+      },
+      onUpgrade: (db, oldV, newV) async {
+        // Ensure app_settings exists on upgraded installs
+        if (oldV < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS app_settings(
+              id INTEGER PRIMARY KEY CHECK (id=1),
+              medium_alert_tone TEXT,
+              loud_alert_tone TEXT,
+              battery_unrestricted INTEGER NOT NULL DEFAULT 0,
+              updated_at TEXT
+            );
+          ''');
+          await db.insert('app_settings', {'id': 1},
+              conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
+        // (Add ALTER TABLEs here if you ever change the tasks schema in future versions)
+      },
+      onOpen: (db) async {
+        // Safety net: ensure settings row exists
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS app_settings(
+            id INTEGER PRIMARY KEY CHECK (id=1),
+            medium_alert_tone TEXT,
+            loud_alert_tone TEXT,
+            battery_unrestricted INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT
+          );
+        ''');
+        final cnt = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(1) FROM app_settings WHERE id=1'),
+        );
+        if ((cnt ?? 0) == 0) {
+          await db.insert('app_settings', {'id': 1},
+              conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
       },
     );
 
-    // ✅ Send the actual DB path to Kotlin, so native code opens the same file
+    // send the DB path to Android
     try {
       await _meta.invokeMethod('dbPath', {'path': _db!.path});
-    } catch (_) {
-      // Don't crash the app if native side isn't ready yet
-    }
+    } catch (_) {/* native side might not be ready; ignore */}
 
     return _db!;
   }
 
-  /// Optional helper if you ever need the path in Dart again
   Future<String> get path async {
     final dir = await getApplicationDocumentsDirectory();
     return p.join(dir.path, 'app.db');

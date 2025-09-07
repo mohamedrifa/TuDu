@@ -62,6 +62,10 @@
             android:enabled="true"
             android:exported="false" />
 
+        <receiver
+            android:name=".AlarmActionReceiver"
+            android:exported="false" />
+
         <!-- android_alarm_manager_plus (keep exactly once) -->
         <service
             android:name="dev.fluttercommunity.plus.androidalarmmanager.AlarmService"
@@ -70,6 +74,10 @@
         <receiver
             android:name="dev.fluttercommunity.plus.androidalarmmanager.AlarmBroadcastReceiver"
             android:exported="true" />
+        <receiver
+            android:name=".AlarmActionReceiver"
+            android:exported="false" />
+
         <!-- Present but disabled so plugin can toggle it without crashing -->
         <receiver
             android:name="dev.fluttercommunity.plus.androidalarmmanager.RebootBroadcastReceiver"

@@ -7,17 +7,32 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 class TaskCheckService : JobIntentService() {
 
     companion object {
         private const val JOB_ID = 1001
+        private val isRunning = AtomicBoolean(false)
+
         fun enqueue(ctx: Context) {
-            enqueueWork(ctx, TaskCheckService::class.java, JOB_ID, Intent(ctx, TaskCheckService::class.java))
+            enqueueWork(ctx, TaskCheckService::class.java, JOB_ID,
+                Intent(ctx, TaskCheckService::class.java))
         }
     }
 
+
     override fun onHandleWork(intent: Intent) {
+        if (!isRunning.compareAndSet(false, true)) return
+        try {
+            runWork()
+        } finally {
+            isRunning.set(false)
+        }
+    }
+
+    private fun runWork() {
+        val appCtx = applicationContext
         // Settings analogue (optional)
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("batteryUnrestricted", false)) {
@@ -56,14 +71,14 @@ class TaskCheckService : JobIntentService() {
                 set(Calendar.MINUTE, m)
             }
 
-            val reduced = (baseCal.clone() as Calendar).apply { add(Calendar.MINUTE, -1) }
-
+            val reduced = (baseCal.clone() as Calendar).apply { add(Calendar.MINUTE, 0) }
+            var message = "" 
             // -------- BEFORE --------
             val beforeCal = (reduced.clone() as Calendar).apply {
                 when (task.alertBefore) {          // <-- matches DB: alert_before
-                    "5 Mins"  -> add(Calendar.MINUTE, -5)
-                    "10 Mins" -> add(Calendar.MINUTE, -10)
-                    "15 Mins" -> add(Calendar.MINUTE, -15)
+                    "5 Mins"  -> {add(Calendar.MINUTE, -5); message = "5 mins to start"}
+                    "10 Mins" -> {add(Calendar.MINUTE, -10); message = "10 mins to start"}
+                    "15 Mins" -> {add(Calendar.MINUTE, -15); message = "15 mins to start"}
                     else -> { /* exactly 'reduced' */ }
                 }
             }
@@ -71,26 +86,30 @@ class TaskCheckService : JobIntentService() {
             if (beforeStr == nowStr) {
                 val todayStr = dayFmt.format(Date())
                 if (!task.taskCompletionDates.contains(todayStr)) {
-                    if (task.beforeMediumAlert) {
-                        Notifier.show(
-                            this,
-                            title = "Reminder",
-                            text = "Starts soon: ${task.title}",
-                            id = 1000 + (task.idBase % 900000)  // stable INT from TEXT id
-                        )
-                    }
                     if (task.beforeLoudAlert) {
-                        AlarmUi.showBeforeLoud(this, task)
+                        FullScreenNotifier.show(
+                            ctx = appCtx,
+                            title = task.title,
+                            text = message,
+                            route = "/lockscreen", // or a more specific route if you like
+                            extras = mapOf(
+                                "alarm_kind" to "before",
+                                "task_id" to task.id,
+                                "task_title" to task.title
+                            ),
+                            notifId = 7000 + (task.idBase % 900000),
+                            snoozeMinutes = 5
+                        )
                     }
                 }
             }
-
+            message = ""
             // -------- AFTER --------
             val afterCal = (reduced.clone() as Calendar).apply {
                 when (task.alertAfter) {           // <-- matches DB: alert_after
-                    "On Time" -> { /* exactly reduced */ }
-                    "5 Mins"  -> add(Calendar.MINUTE, +5)
-                    "10 Mins" -> add(Calendar.MINUTE, +10)
+                    "On Time" -> {message = "It's time to start"}
+                    "5 Mins"  -> {add(Calendar.MINUTE, +5); message = "5 mins Passed"}
+                    "10 Mins" -> {add(Calendar.MINUTE, +10); message = "10 mins Passed"}
                     else -> { /* exactly reduced */ }
                 }
             }
@@ -98,16 +117,20 @@ class TaskCheckService : JobIntentService() {
             if (afterStr == nowStr) {
                 val todayStr = dayFmt.format(Date())
                 if (!task.taskCompletionDates.contains(todayStr)) {
-                    if (task.afterMediumAlert) {
-                        Notifier.show(
-                            this,
-                            title = "Reminder",
-                            text = "Now: ${task.title}",
-                            id = 3000 + (task.idBase % 900000)
-                        )
-                    }
                     if (task.afterLoudAlert) {
-                        AlarmUi.showAfterLoud(this, task)
+                        FullScreenNotifier.show(
+                            ctx = appCtx,
+                            title = task.title,
+                            text = message,
+                            route = "/lockscreen",
+                            extras = mapOf(
+                                "alarm_kind" to "after",
+                                "task_id" to task.id,
+                                "task_title" to task.title
+                            ),
+                            notifId = 8000 + (task.idBase % 900000),
+                            snoozeMinutes = 5
+                        )
                     }
                 }
             }

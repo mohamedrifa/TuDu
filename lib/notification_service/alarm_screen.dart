@@ -2,10 +2,12 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hive/hive.dart';
-import 'package:tudu/models/settings.dart';
 import 'package:vibration/vibration.dart';
 import 'package:volume_controller/volume_controller.dart';
+
+import '../data/app_database.dart';
+import '../data/app_settings_model.dart';
+import '../data/app_settings_repository.dart';
 
 class AlarmScreen extends StatefulWidget {
   static const MethodChannel _channel = MethodChannel('custom.alarm.channel');
@@ -24,147 +26,250 @@ class AlarmScreen extends StatefulWidget {
   State<AlarmScreen> createState() => _AlarmScreenState();
 }
 
-class _AlarmScreenState extends State<AlarmScreen> {
+class _AlarmScreenState extends State<AlarmScreen> with WidgetsBindingObserver {
+  // Constants
+  static const String _defaultAlarmSound = 'audio/loud.mp3';
+  static const Duration _animationDuration = Duration(seconds: 3);
+  static const List<int> _vibrationPattern = [500, 1000, 500, 1000];
+  
+  // Screen dimensions
   late double screenWidth;
   late double screenHeight;
+  
+  // Animation properties
   double elipseWidth = 108.3;
   double elipseHeight = 108.3;
-  Color elipseColor = Color.fromARGB(0, 0, 0, 0);
-  late Timer _timer;
+  Color elipseColor = const Color.fromARGB(0, 0, 0, 0);
   bool isExpanded = false;
-  final AudioPlayer player = AudioPlayer();
-
-  String title = "Read Novel";
-  String prompText = "Start Now";
-  String timing = "6.00 A.M To 7.00 A.M";
   
-  Timer? vibrationTimer;
+  // Timers and controllers
+  Timer? _animationTimer;
+  Timer? _vibrationTimer;
+  
+  // Audio
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isAudioPlaying = false;
+  
+  // Volume listening
   bool _listening = false;
+  
+  // Display data
+  String title = "Read Novel";
+  String promptText = "Start Now";
+  String timing = "6.00 A.M To 7.00 A.M";
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeAlarm();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _cleanupResources();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      // Keep alarm playing even when app goes to background
+    } else if (state == AppLifecycleState.resumed) {
+      // Ensure alarm is still playing when app comes back
+      if (!_isAudioPlaying) {
+        _playAlarmSound();
+      }
+    }
+  }
+
+  void _initializeAlarm() {
+    _setSystemUIMode();
+    _startElipseAnimation();
+    _startVolumeListener();
+    _playAlarmWithVibration();
+  }
+
+  void _cleanupResources() {
+    _animationTimer?.cancel();
+    _vibrationTimer?.cancel();
+    _stopAllEffects();
+    _audioPlayer.dispose();
+    VolumeController().removeListener();
+  }
+
+  void _setSystemUIMode() {
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual, 
+      overlays: [SystemUiOverlay.top]
+    );
+  }
 
   Future<void> dismissAlarm() async {
     try {
       await AlarmScreen._channel.invokeMethod('close');
     } catch (e) {
-      print('❌ Failed to call native alarm: $e');
+      debugPrint('❌ Failed to call native alarm: $e');
     }
     SystemNavigator.pop();
   }
 
-  void GestDetect () {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
-  }
-
-  void startRepeatedVibration() async {
-    bool? hasVibrator = await Vibration.hasVibrator();
-    if (hasVibrator) {
-        Vibration.vibrate(
-          pattern: [500, 1000, 500, 1000], // vibrate, pause, vibrate, pause
-          repeat: 0, // repeat indefinitely from index 0
-      );
-    }
-  }
-
-  void _startListening() {
+  void _startVolumeListener() {
     if (!_listening) {
       VolumeController().listener((volume) {
-        stopEffect();
+        _stopAllEffects();
         setState(() {
-          // _buttonPressed = 'Volume button pressed!';
+          // Volume button pressed - stop alarm
         });
       });
       _listening = true;
     }
   }
 
-  void stopEffect() {
+  void _startRepeatedVibration() async {
+    bool? hasVibrator = await Vibration.hasVibrator();
+    if (hasVibrator == true) {
+      Vibration.vibrate(
+        pattern: _vibrationPattern,
+        repeat: 0, // repeat indefinitely from index 0
+      );
+    }
+  }
+
+  void _stopAllEffects() {
     Vibration.cancel();
-    player.stop();
+    _audioPlayer.stop();
+    _isAudioPlaying = false;
   }
 
-  Future<void> ringtoneHandler() async {
-    if (Hive.isBoxOpen('settings')) {
-      await Hive.box<AppSettings>('settings').close();
+  Future<void> _playAlarmSound() async {
+    try {
+      // Set audio context for alarm
+      await _audioPlayer.setAudioContext(AudioContext(
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          stayAwake: true,
+          contentType: AndroidContentType.sonification,
+          usageType: AndroidUsageType.alarm,
+          audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+        ),
+      ));
+
+      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      await _audioPlayer.setVolume(1.0); // Maximum volume
+      
+      // Try to get user's custom tone first
+      String? tonePath = await _getUserAlarmTone();
+      
+      if (tonePath != null && tonePath.isNotEmpty) {
+        await _audioPlayer.play(DeviceFileSource(tonePath));
+        debugPrint('✅ Playing custom alarm tone: $tonePath');
+      } else {
+        await _audioPlayer.play(AssetSource(_defaultAlarmSound));
+        debugPrint('✅ Playing default alarm tone');
+      }
+      
+      _isAudioPlaying = true;
+      
+    } catch (e) {
+      debugPrint('❌ Error playing alarm sound: $e');
+      // Fallback to asset sound
+      try {
+        await _audioPlayer.play(AssetSource(_defaultAlarmSound));
+        _isAudioPlaying = true;
+        debugPrint('✅ Playing fallback alarm tone');
+      } catch (fallbackError) {
+        debugPrint('❌ Even fallback audio failed: $fallbackError');
+      }
     }
-    final settingsBox = await Hive.openBox<AppSettings>('settings');
-    final userSettings = settingsBox.get('userSettings');
-    final tonePath = userSettings?.loudAlertTone;
-    startRepeatedVibration();
-    await player.setReleaseMode(ReleaseMode.loop);
-    if (tonePath != null && tonePath.isNotEmpty) {
-      await player.play(DeviceFileSource(tonePath));
-    } else {
-      await player.play(AssetSource('audio/loud.mp3'));
+  }
+
+  Future<String?> _getUserAlarmTone() async {
+    try {
+      await AppDatabase.instance.database;
+      final settingsRepo = AppSettingsRepository();
+      AppSettingsDB userSettings = await settingsRepo.get();
+      return userSettings.loudAlertTone;
+    } catch (e) {
+      debugPrint('❌ Error loading user settings: $e');
+      return null;
     }
   }
 
-
-  @override
-  void initState() {
-    super.initState();
-    startElipseAnimation();
-    ringtoneHandler();
-    _startListening();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
-  }
-  @override
-  void dispose() {
-    VolumeController().removeListener();
-    super.dispose();
+  Future<void> _playAlarmWithVibration() async {
+    _startRepeatedVibration();
+    await _playAlarmSound();
   }
 
-  void startElipseAnimation() {
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      setState(() {
-        if (isExpanded) {
-          elipseHeight = 108.3;
-          elipseWidth = 108.3;
-          elipseColor = Colors.transparent;
-        } else {
-          elipseWidth = 576.67;
-          elipseHeight = 833.48;
-          elipseColor = Color(0xFF27262B);
-        }
-        isExpanded = !isExpanded;
-      });
+  void _startElipseAnimation() {
+    _animationTimer = Timer.periodic(_animationDuration, (timer) {
+      if (mounted) {
+        setState(() {
+          if (isExpanded) {
+            elipseHeight = 108.3;
+            elipseWidth = 108.3;
+            elipseColor = Colors.transparent;
+          } else {
+            elipseWidth = 576.67;
+            elipseHeight = 833.48;
+            elipseColor = const Color(0xFF27262B);
+          }
+          isExpanded = !isExpanded;
+        });
+      }
     });
   }
 
-  double objHeight(double height) {
+  double _objHeight(double height) {
     return (height / 917) * screenHeight;
   }
-  double objWidth(double Width) {
-    return (Width / 412) * screenWidth;
+
+  double _objWidth(double width) {
+    return (width / 412) * screenWidth;
   }
 
-  void handleGO () {
-
+  void _handleGo() {
+    _stopAllEffects();
+    // Add your "Go" logic here
+    dismissAlarm();
   }
-  void handleLater () {
 
+  void _handleLater() {
+    _stopAllEffects();
+    // Add your "Later" logic here
+    dismissAlarm();
   }
-  void handleSkip () {
 
+  void _handleSkip() {
+    _stopAllEffects();
+    // Add your "Skip" logic here
+    dismissAlarm();
   }
+
   @override
   Widget build(BuildContext context) {
     screenWidth = MediaQuery.of(context).size.width;
     screenHeight = MediaQuery.of(context).size.height;
-    return WillPopScope(
-      onWillPop: () async {
-        dismissAlarm();
-        return false;
-      }, 
+    
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          dismissAlarm();
+        }
+      },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent, // No background
+          statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.light,
           systemNavigationBarColor: Colors.transparent,
           systemNavigationBarIconBrightness: Brightness.light,
         ),
         child: GestureDetector(
-          onTap: () => GestDetect(),
+          onTap: _setSystemUIMode,
           child: Scaffold(
-            backgroundColor: Color(0xFF313036),
+            backgroundColor: const Color(0xFF313036),
             body: Center(
               child: Stack(
                 children: [
@@ -173,10 +278,10 @@ class _AlarmScreenState extends State<AlarmScreen> {
                     maxHeight: double.infinity,
                     child: ClipOval(
                       child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 3000),
-                      curve: Curves.easeInOut,
-                        width: objWidth(elipseWidth),
-                        height: objHeight(elipseHeight),
+                        duration: const Duration(milliseconds: 3000),
+                        curve: Curves.easeInOut,
+                        width: _objWidth(elipseWidth),
+                        height: _objHeight(elipseHeight),
                         color: elipseColor,
                       ),
                     ),
@@ -184,126 +289,72 @@ class _AlarmScreenState extends State<AlarmScreen> {
                   Container(
                     width: double.infinity,
                     height: double.infinity,
-                    padding: EdgeInsets.symmetric(horizontal: objWidth(16)),
+                    padding: EdgeInsets.symmetric(horizontal: _objWidth(16)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        SizedBox(height: objHeight(67.7)),
+                        SizedBox(height: _objHeight(67.7)),
                         Align(
                           alignment: Alignment.topLeft,
                           child: Image.asset(
                             'assets/logo.png',
-                            width: objWidth(56.03),
-                            height: objHeight(22),
+                            width: _objWidth(56.03),
+                            height: _objHeight(22),
                           ),
                         ),
-                        SizedBox(height: objHeight(78.01)),
+                        SizedBox(height: _objHeight(78.01)),
                         Text(
                           title,
                           style: TextStyle(
                             fontFamily: 'Poppins',
-                            color: Color(0xFFEBFAF9),
+                            color: const Color(0xFFEBFAF9),
                             fontWeight: FontWeight.w600,
-                            fontSize: objWidth(40),
+                            fontSize: _objWidth(40),
                           ),
                         ),
                         Text(
-                          prompText,
+                          promptText,
                           style: TextStyle(
                             fontFamily: 'Poppins',
-                            color: Color(0xFFEBFAF9),
+                            color: const Color(0xFFEBFAF9),
                             fontWeight: FontWeight.w600,
-                            fontSize: objWidth(32),
+                            fontSize: _objWidth(32),
                           ),
                         ),
-                        SizedBox(height: objHeight(33.92)),
+                        SizedBox(height: _objHeight(33.92)),
                         Text(
                           timing,
                           style: TextStyle(
                             fontFamily: 'Quantico',
-                            color: Color(0xFFEBFAF9),
+                            color: const Color(0xFFEBFAF9),
                             fontWeight: FontWeight.w700,
-                            fontSize: objWidth(18),
+                            fontSize: _objWidth(18),
                           ),
                         ),
-                        SizedBox(height: objHeight(395)),
-                        Container(
+                        SizedBox(height: _objHeight(395)),
+                        SizedBox(
                           width: double.infinity,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Material(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                                color: Color(0xFF1B1A1E),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(25),
-                                  onTap: () => {handleLater()},
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(vertical: 10),
-                                    width: objWidth(170),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          "Later",
-                                          style: TextStyle(
-                                            fontFamily: 'Poppins',
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFFEBFAF9),
-                                            fontSize: 24
-                                          ),
-                                        ),
-                                        SizedBox(width: 5),
-                                        Image.asset(
-                                          'assets/laterIcon.png',
-                                          width: 30,
-                                          height: 30,
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                ),
+                              _buildActionButton(
+                                text: "Later",
+                                iconPath: 'assets/laterIcon.png',
+                                onTap: _handleLater,
                               ),
-                              Material(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                                color: Color(0xFF1B1A1E),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(25),
-                                  onTap: () => {handleGO()},
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(vertical: 10),
-                                    width: objWidth(170),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          "Go",
-                                          style: TextStyle(
-                                            fontFamily: 'Poppins',
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFFEBFAF9),
-                                            fontSize: 24
-                                          ),
-                                        ),
-                                        SizedBox(width: 5),
-                                        Image.asset(
-                                          'assets/goIcon.png',
-                                          width: 30,
-                                          height: 30,
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                ),
+                              _buildActionButton(
+                                text: "Go",
+                                iconPath: 'assets/goIcon.png',
+                                onTap: _handleGo,
                               ),
                             ],
                           ),
                         ),
-                        SizedBox(height: objHeight(16)),
+                        SizedBox(height: _objHeight(16)),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
+                            const Text(
                               "Unable To Do Now? ",
                               style: TextStyle(
                                 fontFamily: 'Poppins',
@@ -315,20 +366,20 @@ class _AlarmScreenState extends State<AlarmScreen> {
                             Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: () => {handleSkip()},
-                                child: Text(
+                                onTap: _handleSkip,
+                                child: const Text(
                                   "Skip This",
                                   style: TextStyle(
                                     fontFamily: 'Poppins',
                                     fontWeight: FontWeight.w600,
                                     fontSize: 16,
-                                    color: const Color(0xFF227D7B),
+                                    color: Color(0xFF227D7B),
                                     decoration: TextDecoration.underline,
-                                    decorationColor: const Color(0xFF227D7B),
-                                    decorationStyle: TextDecorationStyle.solid, 
+                                    decorationColor: Color(0xFF227D7B),
+                                    decorationStyle: TextDecorationStyle.solid,
                                   ),
                                 ),
-                              )
+                              ),
                             ),
                           ],
                         )
@@ -336,11 +387,50 @@ class _AlarmScreenState extends State<AlarmScreen> {
                     ),
                   )
                 ],
-              )
+              ),
             ),
-          ) 
+          ),
         ),
-      )
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required String text,
+    required String iconPath,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+      color: const Color(0xFF1B1A1E),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(25),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          width: _objWidth(170),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                text,
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFEBFAF9),
+                  fontSize: 24,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Image.asset(
+                iconPath,
+                width: 30,
+                height: 30,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

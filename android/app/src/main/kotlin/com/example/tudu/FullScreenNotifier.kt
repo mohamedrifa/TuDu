@@ -6,34 +6,30 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import java.io.File
 
 object FullScreenNotifier {
-    const val CHANNEL_ID = "alarm_fullscreen_v2"
+    // New silent channel (sound played via MediaPlayer)
+    const val CHANNEL_ID = "alarm_fullscreen_silent_v1"
+    const val ACTION_SNOOZE = "com.example.tudu.ACTION_SNOOZE"
+    const val ACTION_DISMISS = "com.example.tudu.ACTION_DISMISS"
 
-    fun ensureChannel(ctx: Context) {
+    private fun ensureSilentChannel(ctx: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            val attrs = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-
             val ch = NotificationChannel(
                 CHANNEL_ID,
-                "Alarms (Full Screen)",
+                "Alarms (Full Screen, Silent)",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Full-screen alarms and urgent reminders"
+                description = "Full-screen alarms and urgent reminders (sound played separately)"
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                setSound(soundUri, attrs)
+                setSound(null, null) // channel is silent; we play via MediaPlayer
                 enableVibration(true)
+                vibrationPattern = longArrayOf(0, 600, 200, 600)
                 enableLights(true)
                 if (Build.VERSION.SDK_INT >= 29) setBypassDnd(true)
             }
@@ -42,8 +38,7 @@ object FullScreenNotifier {
     }
 
     /**
-     * Posts a full-screen notification that launches LockScreenActivity.
-     * Returns true if posted; false if it fell back to startActivity.
+     * Posts a full-screen alarm notification and plays custom tone from DB (or default raw).
      */
     fun show(
         ctx: Context,
@@ -51,47 +46,88 @@ object FullScreenNotifier {
         text: String,
         route: String,
         extras: Map<String, String> = emptyMap(),
-        notifId: Int
+        notifId: Int,
+        snoozeMinutes: Int = 5
     ): Boolean {
-        ensureChannel(ctx)
+        ensureSilentChannel(ctx)
 
-        val intent = Intent(ctx, LockScreenActivity::class.java).apply {
+        // Full-screen activity intent
+        val fsIntent = Intent(ctx, LockScreenActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("route", route)
+            putExtra("notifId", notifId)
             extras.forEach { (k, v) -> putExtra(k, v) }
         }
         val fullScreenPi = PendingIntent.getActivity(
             ctx,
             0,
-            intent,
-            (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0) or
-                PendingIntent.FLAG_UPDATE_CURRENT
+            fsIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
+        )
+
+        // Snooze action
+        val snoozeIntent = Intent(ctx, AlarmActionReceiver::class.java).apply {
+            action = ACTION_SNOOZE
+            putExtra("notifId", notifId)
+            putExtra("snoozeMinutes", snoozeMinutes)
+            extras.forEach { (k, v) -> putExtra(k, v) }
+        }
+        val snoozePi = PendingIntent.getBroadcast(
+            ctx,
+            notifId shl 1,
+            snoozeIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
+        )
+
+        // Dismiss action
+        val dismissIntent = Intent(ctx, AlarmActionReceiver::class.java).apply {
+            action = ACTION_DISMISS
+            putExtra("notifId", notifId)
+            extras.forEach { (k, v) -> putExtra(k, v) }
+        }
+        val dismissPi = PendingIntent.getBroadcast(
+            ctx,
+            (notifId shl 1) + 1,
+            dismissIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
         )
 
         val nm = NotificationManagerCompat.from(ctx)
-        val canNotify = nm.areNotificationsEnabled()
-
-        if (!canNotify && Build.VERSION.SDK_INT >= 29) {
-            // Best-effort fallback if user disabled notifications.
-            ctx.startActivity(intent)
+        if (!nm.areNotificationsEnabled() && Build.VERSION.SDK_INT >= 29) {
+            // If notifications are disabled, still try to show the screen and play sound
+            ctx.startActivity(fsIntent)
+            startSoundFromDb(ctx)
             return false
         }
 
+        // Start sound (custom from DB if present; otherwise raw/loud)
+        startSoundFromDb(ctx)
+
         val n = NotificationCompat.Builder(ctx, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(text)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setPriority(NotificationCompat.PRIORITY_MAX) // pre-26
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(true) // keeps it on screen until acted upon
-            .setAutoCancel(true)
-            .setDefaults(0) // we set sound via channel on O+, below sets pre-26
-            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
-            .setFullScreenIntent(fullScreenPi, true) // 👈 the key for full-screen
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setDefaults(0)                  // no system sound; we handle sound ourselves
+            .setFullScreenIntent(fullScreenPi, true)
+            .addAction(0, "Later", dismissPi)
+            .addAction(0, "Go", snoozePi)
             .build()
 
         nm.notify(notifId, n)
         return true
+    }
+
+    private fun startSoundFromDb(ctx: Context) {
+        val path = AppSettingsStore.getLoudTonePath()
+        if (!path.isNullOrBlank() && File(path).exists()) {
+            AlarmAudioPlayer.startPath(ctx, path)
+        } else {
+            AlarmAudioPlayer.startDefault(ctx)
+        }
     }
 }

@@ -3,18 +3,19 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:hive/hive.dart'; // ✅ keep Hive for AppSettings only
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:table_calendar/table_calendar.dart';
-import '../models/settings.dart'; // ✅ AppSettings remains in Hive
 // ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as p;
 import 'package:file_selector/file_selector.dart';
 
-// ✅ SQLite-backed Task & Repository (use these instead of Hive Task/HiveService)
+// ✅ SQLite-backed Task & Repository
 import '../data/task_model.dart';
 import '../data/task_repository.dart';
+
+// ✅ SQLite-backed AppSettings
+import '../data/app_settings_repository.dart';
 
 class QuickLinks extends StatefulWidget {
   final bool quickLinksEnabled;
@@ -44,7 +45,8 @@ class _QuickLinksState extends State<QuickLinks> {
   Color containerColor = Colors.transparent;
   double rightOffset = -312; // Start off-screen
 
-  // ===== AppSettings (Hive) state =====
+  // ===== AppSettings (SQLite) state =====
+  late final AppSettingsRepository _settingsRepo;
   String mediumAlertLocation = "";
   String loudAlertLocation = "";
   String mediumAlertName = " Efefjwfgguggkfbgfbggf";
@@ -88,19 +90,28 @@ class _QuickLinksState extends State<QuickLinks> {
       _selectedDay = dateTime;
     }
 
-    // load AppSettings (Hive) tone names
-    final settingsBox = Hive.box<AppSettings>('settings');
-    final currentSettings = settingsBox.get('userSettings');
-    if (currentSettings != null && currentSettings.mediumAlertTone.isNotEmpty) {
-      mediumAlertName = " ${p.basename(currentSettings.mediumAlertTone)}";
-    }
-    if (currentSettings != null && currentSettings.loudAlertTone.isNotEmpty) {
-      loudAlertName = " ${p.basename(currentSettings.loudAlertTone)}";
-    }
+    // load AppSettings (SQLite)
+    _settingsRepo = AppSettingsRepository();
+    _loadSettings();
 
     // load tasks from SQLite
     _repo = SqliteTaskRepository();
     _loadTasks();
+  }
+
+  Future<void> _loadSettings() async {
+    final s = await _settingsRepo.get();
+    if (!mounted) return;
+    setState(() {
+      mediumAlertLocation = s.mediumAlertTone;
+      loudAlertLocation = s.loudAlertTone;
+      if (s.mediumAlertTone.isNotEmpty) {
+        mediumAlertName = " ${p.basename(s.mediumAlertTone)}";
+      }
+      if (s.loudAlertTone.isNotEmpty) {
+        loudAlertName = " ${p.basename(s.loudAlertTone)}";
+      }
+    });
   }
 
   Future<void> _loadTasks() async {
@@ -151,14 +162,8 @@ class _QuickLinksState extends State<QuickLinks> {
       toast("Please Choose a File");
       return;
     }
-    final settingsBox = Hive.box<AppSettings>('settings');
-    final currentSettings = settingsBox.get('userSettings');
-    final updatedSettings = AppSettings(
-      mediumAlertTone: mediumAlertLocation,
-      loudAlertTone: currentSettings?.loudAlertTone ?? '',
-      batteryUnrestricted: currentSettings?.batteryUnrestricted ?? false,
-    );
-    settingsBox.put('userSettings', updatedSettings);
+    await _settingsRepo.setMediumAlert(mediumAlertLocation);
+    await _loadSettings();
     toast("Medium Alert Tone is Set");
   }
 
@@ -192,14 +197,8 @@ class _QuickLinksState extends State<QuickLinks> {
       toast("Please Choose a File");
       return;
     }
-    final settingsBox = Hive.box<AppSettings>('settings');
-    final currentSettings = settingsBox.get('userSettings');
-    final updatedSettings = AppSettings(
-      mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
-      loudAlertTone: loudAlertLocation,
-      batteryUnrestricted: currentSettings?.batteryUnrestricted ?? false,
-    );
-    settingsBox.put('userSettings', updatedSettings);
+    await _settingsRepo.setLoudAlert(loudAlertLocation);
+    await _loadSettings();
     toast("Loud Alert Tone is Set");
   }
 
@@ -499,7 +498,7 @@ class _QuickLinksState extends State<QuickLinks> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    // ===== Medium Alert (Hive) =====
+                    // ===== Medium Alert (SQLite) =====
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.only(left: 8.24),
@@ -582,7 +581,7 @@ class _QuickLinksState extends State<QuickLinks> {
                             ],
                           ),
                           const SizedBox(height: 23),
-                          // ===== Loud Alert (Hive) =====
+                          // ===== Loud Alert (SQLite) =====
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -673,7 +672,6 @@ class _QuickLinksState extends State<QuickLinks> {
 
   /// Builds the "Total Hours Of Tasks" section using SQLite data.
   Widget buildHourTasks() {
-    // Filter tasks according to the same rules you used with Hive
     final filteredTasks = _allTasks.where((task) {
       return filteredList(task.date, task.weekDays, task.important);
     }).toList();
@@ -691,39 +689,21 @@ class _QuickLinksState extends State<QuickLinks> {
     Duration totalDuration = Duration.zero;
 
     for (final task in filteredTasks) {
-      // fromTime/toTime stored as "HH:mm"
       final fromTime = DateTime.parse("2025-01-01 ${task.fromTime}:00");
       final toTime = DateTime.parse("2025-01-01 ${task.toTime}:00");
       final diff = toTime.difference(fromTime);
       totalDuration += diff;
 
       switch (task.tags) {
-        case "Upskill":
-          upskill += diff;
-          break;
-        case "Work":
-          work += diff;
-          break;
-        case "Personal":
-          personal += diff;
-          break;
-        case "Health":
-          health += diff;
-          break;
-        case "Exercise":
-          exercise += diff;
-          break;
-        case "Social":
-          social += diff;
-          break;
-        case "Spiritual":
-          spiritual += diff;
-          break;
-        case "Finance":
-          finance += diff;
-          break;
-        default:
-          others += diff;
+        case "Upskill":   upskill += diff; break;
+        case "Work":      work += diff; break;
+        case "Personal":  personal += diff; break;
+        case "Health":    health += diff; break;
+        case "Exercise":  exercise += diff; break;
+        case "Social":    social += diff; break;
+        case "Spiritual": spiritual += diff; break;
+        case "Finance":   finance += diff; break;
+        default:          others += diff;
       }
     }
 

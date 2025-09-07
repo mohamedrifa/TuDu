@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hive_flutter/hive_flutter.dart';              // ✅ still used for AppSettings only
-import 'package:tudu/models/settings.dart';
 import '../notification_service/notification_service.dart';
 import '../widgets/task_card.dart';
 import 'task_adding_screen.dart';
@@ -14,6 +12,11 @@ import 'dart:io';
 import '../data/task_model.dart';
 import '../data/task_repository.dart';
 
+// ✅ SQLite-backed AppSettings
+import '../data/app_settings_repository.dart';
+import '../data/app_settings_model.dart';
+import '../data/app_database.dart';
+
 // ignore: must_be_immutable
 class TaskScreen extends StatefulWidget {
   const TaskScreen({super.key});
@@ -23,14 +26,17 @@ class TaskScreen extends StatefulWidget {
 }
 
 class _TaskScreenState extends State<TaskScreen> {
-  // ===== SQLite repo & in-memory list =====
+  // ===== SQLite repos =====
   late final TaskRepository _taskRepo;
+  late final AppSettingsRepository _settingsRepo;
+
+  // ===== Tasks in-memory list =====
   List<Task> _allTasks = [];
   bool _loading = true;
 
   DateTime now = DateTime.now();
   String addTaskId = DateFormat('yyyyMMddhhmmss').format(DateTime.now());
-  var settingsBox = Hive.box<AppSettings>('settings'); // still Hive for settings
+
   String selectedDate = "Today";
   String showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now());
 
@@ -65,7 +71,7 @@ class _TaskScreenState extends State<TaskScreen> {
         showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now());
       } else if (selectedDate == "Tomorrow") {
         showDate = DateFormat('d EEE MMM yyyy')
-            .format(DateTime.now().add(Duration(days: 1)));
+            .format(DateTime.now().add(const Duration(days: 1)));
       }
     });
   }
@@ -75,6 +81,7 @@ class _TaskScreenState extends State<TaskScreen> {
   void initState() {
     super.initState();
     _taskRepo = SqliteTaskRepository();
+    _settingsRepo = AppSettingsRepository();
     _requestNotificationPermission();
     _loadTasks();
   }
@@ -82,7 +89,8 @@ class _TaskScreenState extends State<TaskScreen> {
   // Load all tasks from SQLite
   Future<void> _loadTasks() async {
     setState(() => _loading = true);
-    final tasks = await _taskRepo.getAll(); // <-- ensure your repo exposes this
+    final tasks = await _taskRepo.getAll();
+    if (!mounted) return;
     setState(() {
       _allTasks = tasks;
       _loading = false;
@@ -93,7 +101,7 @@ class _TaskScreenState extends State<TaskScreen> {
   void openBatterySettings() {
     final intent = AndroidIntent(
       action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
-      data: 'package:com.example.tudu', // Replace with your package
+      data: 'package:com.example.tudu', // Replace with your package if different
       flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
     );
     intent.launch();
@@ -101,16 +109,25 @@ class _TaskScreenState extends State<TaskScreen> {
 
   Future<void> _requestNotificationPermission() async {
     if (!Platform.isAndroid) return;
-    await Future.delayed(Duration(seconds: 2));
-    AppSettings? currentSettings = settingsBox.get('userSettings');
-    if (currentSettings == null || !currentSettings.batteryUnrestricted) {
+
+    // Ensure DB is opened (also sends path to Android via MethodChannel)
+    await AppDatabase.instance.database;
+
+    await Future.delayed(const Duration(seconds: 2));
+
+    final AppSettingsDB cur = await _settingsRepo.get();
+    if (!cur.batteryUnrestricted) {
       showBatteryDialog(context);
     }
+
     if (await Permission.notification.isDenied) {
       await Permission.notification.request();
-      if ((await Permission.notification.isGranted)) {
+      if (await Permission.notification.isGranted) {
         NotificationService().scheduleAlarmEveryMinute();
       }
+    } else if (await Permission.notification.isGranted) {
+      // If already granted, ensure the periodic alarm is scheduled
+      NotificationService().scheduleAlarmEveryMinute();
     }
   }
 
@@ -184,7 +201,7 @@ class _TaskScreenState extends State<TaskScreen> {
       DateTime parsedDate = inputFormat.parse(value);
       String formattedDate = DateFormat('d EEE MMM yyyy').format(parsedDate);
       DateTime today = DateTime.now();
-      DateTime tomorrow = today.add(Duration(days: 1));
+      DateTime tomorrow = today.add(const Duration(days: 1));
       bool isSameDate(DateTime a, DateTime b) =>
           a.year == b.year && a.month == b.month && a.day == b.day;
 
@@ -208,14 +225,15 @@ class _TaskScreenState extends State<TaskScreen> {
   }
 
   void GestDetect() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [SystemUiOverlay.top],
+    );
   }
 
   // ---------- Build ----------
   @override
   Widget build(BuildContext context) {
-    // NOTE: No HiveService / listenable here anymore.
-    // We render from _allTasks (SQLite) and refresh after edits/additions.
     return WillPopScope(
       onWillPop: () async {
         SystemNavigator.pop();
@@ -289,8 +307,7 @@ class _TaskScreenState extends State<TaskScreen> {
                   showDate: showDate,
                   onDateChanged: (value) {
                     dateChange(value);
-                    // Refresh after date change (filtering happens locally)
-                    setState(() {});
+                    setState(() {}); // filtering happens locally
                   },
                 ),
             ],
@@ -334,7 +351,7 @@ class _TaskScreenState extends State<TaskScreen> {
             itemBuilder: (context, index) {
               final task = filteredTasks[index];
               return TaskCard(
-                key: ValueKey(task.id),   // 👈 important
+                key: ValueKey(task.id),
                 index: index,
                 id: task.id,
                 date: showDate,
@@ -426,9 +443,9 @@ class _TaskScreenState extends State<TaskScreen> {
         child: Column(
           children: [
             Container(
-              margin: EdgeInsets.only(top: 85.09),
+              margin: const EdgeInsets.only(top: 85.09),
               child: RichText(
-                text: TextSpan(
+                text: const TextSpan(
                   style: TextStyle(color: Colors.black, fontSize: 18),
                   children: [
                     TextSpan(
@@ -463,7 +480,7 @@ class _TaskScreenState extends State<TaskScreen> {
               ),
             ),
             Container(
-              margin: EdgeInsets.only(top: 24.0),
+              margin: const EdgeInsets.only(top: 24.0),
               child: Image.asset(
                 'assets/emptyTaskImg.png',
                 height: 253.15,
@@ -475,10 +492,10 @@ class _TaskScreenState extends State<TaskScreen> {
                   children: [
                     Container(
                       width: 350,
-                      margin: EdgeInsets.only(top: 24.0, bottom: 24.0),
+                      margin: const EdgeInsets.only(top: 24.0, bottom: 24.0),
                       child: Center(
                         child: RichText(
-                          text: TextSpan(
+                          text: const TextSpan(
                             style: TextStyle(color: Colors.black, fontSize: 18),
                             children: [
                               TextSpan(
@@ -523,10 +540,10 @@ class _TaskScreenState extends State<TaskScreen> {
                         splashColor: Colors.white.withOpacity(0.2),
                         child: Container(
                           width: 205.0,
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                               horizontal: 10.0, vertical: 8.75),
                           decoration: BoxDecoration(
-                            color: Color.fromARGB(0, 31, 209, 162),
+                            color: const Color.fromARGB(0, 31, 209, 162),
                             border: Border.all(
                               color: Colors.white,
                               width: 2.0,
@@ -536,7 +553,7 @@ class _TaskScreenState extends State<TaskScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
+                              const Text(
                                 "Add New",
                                 style: TextStyle(
                                   color: Colors.white,
@@ -580,9 +597,6 @@ class _TaskScreenState extends State<TaskScreen> {
   }
 
   void showBatteryDialog(BuildContext context) {
-    final settingsBox = Hive.box<AppSettings>('settings');
-    final currentSettings = settingsBox.get('userSettings');
-
     showDialog(
       context: context,
       builder: (ctx) {
@@ -635,14 +649,12 @@ class _TaskScreenState extends State<TaskScreen> {
                   'Cancel',
                   style: TextStyle(color: Colors.grey),
                 ),
-                onPressed: () {
-                  final updatedSettings = AppSettings(
-                    mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
-                    loudAlertTone: currentSettings?.loudAlertTone ?? '',
-                    batteryUnrestricted: doNotShowAgain,
-                  );
-                  settingsBox.put('userSettings', updatedSettings);
-                  Navigator.of(ctx).pop();
+                onPressed: () async {
+                  // Persist "do not show again" flag in SQLite
+                  if (doNotShowAgain) {
+                    await _settingsRepo.setBatteryUnrestricted(true);
+                  }
+                  if (mounted) Navigator.of(ctx).pop();
                 },
               ),
               TextButton(
@@ -650,8 +662,11 @@ class _TaskScreenState extends State<TaskScreen> {
                   'Open Settings',
                   style: TextStyle(color: Colors.blueAccent),
                 ),
-                onPressed: () {
-                  Navigator.of(ctx).pop();
+                onPressed: () async {
+                  if (doNotShowAgain) {
+                    await _settingsRepo.setBatteryUnrestricted(true);
+                  }
+                  if (mounted) Navigator.of(ctx).pop();
                   openBatterySettings();
                 },
               ),
