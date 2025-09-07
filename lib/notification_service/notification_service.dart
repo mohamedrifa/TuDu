@@ -559,7 +559,6 @@ class FullScreenNotification {
       await player.play(AssetSource('audio/loud.mp3'));
     }
   }
-
   Future<void> cancelNotification () async {
     await notificationPlugin.cancelAll();
     stopEffect();
