@@ -291,7 +291,7 @@ class MediumNotification {
 
             // ✅ Show follow-up notification without action buttons
             await notificationPlugin.show(
-              9999,
+              7777,
               'Task Started',
               '${task.title} marked as completed!',
               _simpleNotificationDetails(),
@@ -401,7 +401,9 @@ class FullScreenNotification {
         player.stop();
         String? idFromPayload = response.payload;
         if (idFromPayload == null) return;
-
+        final parts = idFromPayload.split('|');
+        final taskId = parts[0];
+        final message = parts.length > 1 ? parts[1] : "";
         // ✅ Ensure Hive is ready
         if (!Hive.isBoxOpen('tasks')) {
           await Hive.initFlutter();
@@ -412,7 +414,7 @@ class FullScreenNotification {
         }
 
         final box = Hive.box<Task>('tasks');
-        final task = box.get(idFromPayload);
+        final task = box.get(taskId);
 
         if (response.actionId == 'action_1') {
           debugPrint('Later pressed');
@@ -426,7 +428,7 @@ class FullScreenNotification {
             await box.put(idFromPayload, task);
 
             await notificationPlugin.show(
-              9999,
+              8888,
               'Task Started',
               '${task.title} marked as completed!',
               _simpleNotificationDetails(),
@@ -441,8 +443,8 @@ class FullScreenNotification {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => AlarmScreen(
-              title: task?.title ?? "Loud Alarm",
-              description: "It’s time to start your task.",
+              taskId: idFromPayload,
+              message: message,
             ),
           ),
         );
@@ -498,6 +500,9 @@ class FullScreenNotification {
   }
 
   Future<void> showNotification(Task task, String message) async {
+    DateTime now = DateTime.now();
+    int currentSecond = now.second;
+    await Future.delayed(Duration(seconds: 60 - currentSecond));
     taskId = task.id;
     int id = int.parse(task.id) % 2147483647;
 
@@ -506,18 +511,12 @@ class FullScreenNotification {
       task.title,
       "$message${task.title}",
       _notificationDetails(),
-      payload: task.id,
+      payload: "${task.id}|$message", // 👈 combine id and message
     );
+
 
     ringtoneHandler();
     _startListening();
-  }
-  Future<void> stopAlarm() async {
-    try {
-      await player.stop();
-    } catch (e) {
-      debugPrint("Error stopping alarm sound: $e");
-    }
   }
 
   void startRepeatedVibration() async {
@@ -539,9 +538,17 @@ class FullScreenNotification {
     }
   }
 
-  void stopEffect() {
-    Vibration.cancel();
-    player.stop();
+  Future<void> stopEffect() async {
+    try {
+      await player.stop(); // ensure it really stops
+    } catch (e) {
+      debugPrint("Error stopping audio: $e");
+    }
+    try {
+      await Vibration.cancel();
+    } catch (e) {
+      debugPrint("Error stopping vibration: $e");
+    }
   }
 
   Future<void> ringtoneHandler() async {
@@ -558,6 +565,10 @@ class FullScreenNotification {
     } else {
       await player.play(AssetSource('audio/loud.mp3'));
     }
+  }
+  Future<void> cancelById (taskId) async {
+    int id = int.parse(taskId) % 2147483647;
+    await notificationPlugin.cancel(id);
   }
   Future<void> cancelNotification () async {
     await notificationPlugin.cancelAll();

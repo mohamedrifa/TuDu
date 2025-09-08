@@ -1,24 +1,26 @@
+// ignore_for_file: unused_field
+
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hive/hive.dart';
-import 'package:tudu/models/settings.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:tudu/notification_service/notification_service.dart';
 import 'package:vibration/vibration.dart';
-import 'package:volume_controller/volume_controller.dart';
+
+import '../models/task.dart';
 
 class AlarmScreen extends StatefulWidget {
   static const MethodChannel _channel = MethodChannel('custom.alarm.channel');
-  final String title;
-  final String description;
-  final String buttonText;
+  final String taskId;
+  final String message;
 
   const AlarmScreen({
     super.key,
-    required this.title,
-    required this.description,
-    this.buttonText = 'Dismiss',
+    required this.taskId,
+    required this.message
   });
 
   @override
@@ -33,22 +35,29 @@ class _AlarmScreenState extends State<AlarmScreen> {
   Color elipseColor = Color.fromARGB(0, 0, 0, 0);
   late Timer _timer;
   bool isExpanded = false;
+  bool _launchedFromNotification = false;
   final AudioPlayer player = AudioPlayer();
+  var task;
+  final box = Hive.box<Task>('tasks');
 
-  String title = "Read Novel";
-  String prompText = "Start Now";
-  String timing = "6.00 A.M To 7.00 A.M";
-  
-  Timer? vibrationTimer;
-  bool _listening = false;
+  String title = "";
+  String prompText = "";
+  String timing = "";
+  final FlutterLocalNotificationsPlugin notificationPlugin =
+      FlutterLocalNotificationsPlugin();
 
-  Future<void> dismissAlarm() async {
-    try {
-      await AlarmScreen._channel.invokeMethod('close');
-    } catch (e) {
-      print('❌ Failed to call native alarm: $e');
-    }
-    SystemNavigator.pop();
+  NotificationDetails _simpleNotificationDetails() {
+    return const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'simple_channel',
+        'General',
+        channelDescription: 'Simple notification without actions',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
   }
 
   void GestDetect () {
@@ -65,37 +74,53 @@ class _AlarmScreenState extends State<AlarmScreen> {
     }
   }
 
-  void _startListening() {
-    if (!_listening) {
-      VolumeController().listener((volume) {
-        stopEffect();
-        setState(() {
-          // _buttonPressed = 'Volume button pressed!';
-        });
-      });
-      _listening = true;
+  Future<void> taskInitialize() async {
+    if (!Hive.isBoxOpen('tasks')) {
+      await Hive.initFlutter();
+      if (!Hive.isAdapterRegistered(0)) {
+        Hive.registerAdapter(TaskAdapter()); // 👈 use your Task typeId
+      }
+      await Hive.openBox<Task>('tasks');
     }
-  }
+    task = box.get(widget.taskId);
+    title = task!.title;
+    switch(widget.message) {
+      case "5 Minutes to Start ":
+        prompText = "5 Minutes to Start";
+        break;
+      case "10 Minutes to Start ":
+        prompText = "10 Minutes to Start";
+        break;
+      case "15 Minutes to Start ":
+        prompText = "15 Minutes to Start";
+        break;
+      case "Its Time to Start ":
+        prompText = "Start Now";
+        break;
+      case "5 Mins Passed for ":
+        prompText = "5 Mins Passed";
+        break;
+      case "10 Mins Passed for ":
+        prompText = "10 Mins Passed";
+        break;
+      default:
+        prompText = "Start Task";
+    }
 
-  void stopEffect() {
-    Vibration.cancel();
-    player.stop();
-  }
 
-  Future<void> ringtoneHandler() async {
-    if (Hive.isBoxOpen('settings')) {
-      await Hive.box<AppSettings>('settings').close();
-    }
-    final settingsBox = await Hive.openBox<AppSettings>('settings');
-    final userSettings = settingsBox.get('userSettings');
-    final tonePath = userSettings?.loudAlertTone;
-    startRepeatedVibration();
-    await player.setReleaseMode(ReleaseMode.loop);
-    if (tonePath != null && tonePath.isNotEmpty) {
-      await player.play(DeviceFileSource(tonePath));
-    } else {
-      await player.play(AssetSource('audio/loud.mp3'));
-    }
+    DateFormat timeFormat = DateFormat("HH:mm");
+    DateTime fromTime = timeFormat.parse(task.fromTime);
+    DateTime toTime = timeFormat.parse(task.toTime);
+
+    // Convert to 12-hour format with AM/PM
+    String formattedFrom = DateFormat("h.mm a").format(fromTime);
+    String formattedTo = DateFormat("h.mm a").format(toTime);
+
+    // Replace AM/PM with A.M./P.M.
+    formattedFrom = formattedFrom.replaceAll("AM", "A.M").replaceAll("PM", "P.M");
+    formattedTo = formattedTo.replaceAll("AM", "A.M").replaceAll("PM", "P.M");
+
+    timing = "$formattedFrom To $formattedTo";
   }
 
 
@@ -103,15 +128,29 @@ class _AlarmScreenState extends State<AlarmScreen> {
   void initState() {
     super.initState();
     startElipseAnimation();
-    
-    // ringtoneHandler();
-    // _startListening();
+    _checkLaunchDetails();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
+    Future.microtask(() async {
+      await taskInitialize();
+      setState(() {}); // update UI after task loaded
+    });
   }
+  Future<void> _checkLaunchDetails() async {
+    final plugin = FlutterLocalNotificationsPlugin();
+    final details = await plugin.getNotificationAppLaunchDetails();
+
+    if (details != null && details.didNotificationLaunchApp) {
+      setState(() {
+        _launchedFromNotification = true;
+      });
+    }
+  }
+
   @override
   void dispose() {
-    VolumeController().removeListener();
     super.dispose();
+    _timer.cancel();
+    FullScreenNotification().stopEffect();
   }
 
   void startElipseAnimation() {
@@ -139,18 +178,49 @@ class _AlarmScreenState extends State<AlarmScreen> {
   }
 
   void handleLater() {
-    FullScreenNotification().stopAlarm();
-    Navigator.pop(context);
+    FullScreenNotification().stopEffect();
+    FullScreenNotification().cancelById(widget.taskId);
+    _timer.cancel();
+    if (_launchedFromNotification) {
+      SystemNavigator.pop();
+    } else {
+      Navigator.pop(context);
+    }
   }
 
-  void handleGo() {
-    FullScreenNotification().stopAlarm();
-    // Continue task flow...
+  Future<void> handleGo() async {
+    if (task != null) {
+      String date =
+          DateFormat('d EEE MMM yyyy').format(DateTime.now());
+      task.taskCompletionDates.add(date);
+      await box.put(widget.taskId, task);
+
+      await notificationPlugin.show(
+        9999,
+        'Task Started',
+        '${task.title} marked as completed!',
+        _simpleNotificationDetails(),
+      );
+    }
+    FullScreenNotification().stopEffect();
+    FullScreenNotification().cancelById(widget.taskId);
+    _timer.cancel();
+    if (_launchedFromNotification) {
+      SystemNavigator.pop();
+    } else {
+      Navigator.pop(context);
+    }
   }
 
   void handleSkip() {
-    FullScreenNotification().stopAlarm();
-    Navigator.pop(context);
+    FullScreenNotification().stopEffect();
+    FullScreenNotification().cancelById(widget.taskId);
+    _timer.cancel();
+    if (_launchedFromNotification) {
+      SystemNavigator.pop();
+    } else {
+      Navigator.pop(context);
+    }
   }
 
   @override
@@ -159,7 +229,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
     screenHeight = MediaQuery.of(context).size.height;
     return WillPopScope(
       onWillPop: () async {
-        dismissAlarm();
+        handleSkip();
         return false;
       }, 
       child: AnnotatedRegion<SystemUiOverlayStyle>(

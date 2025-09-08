@@ -42,17 +42,17 @@ class _MyAppState extends State<MyApp> {
 
     if (details != null && details.didNotificationLaunchApp) {
       if (details.notificationResponse?.payload != null) {
-        // ✅ Launch directly into AlarmScreen
-        _startPage = const AlarmScreen(
-          title: "Loud Alarm",
-          description: "It’s time to start your task.",
-        );
+        final parts = details.notificationResponse!.payload!.split('|');
+        final taskId = parts[0];
+        final message = parts.length > 1 ? parts[1] : "";
+        _startPage = AlarmScreen(taskId: taskId, message: message); // 👈 pass taskId here
       } else {
         _startPage = FullScreenPage();
       }
     } else {
       _startPage = FullScreenPage();
     }
+
 
     if (mounted) setState(() {});
   }
