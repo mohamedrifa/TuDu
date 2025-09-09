@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tudu/models/settings.dart';
+import 'package:tudu/widgets/tip_banner.dart';
+import '../notification_service/alarm_permission_helper.dart';
 import '../notification_service/notification_service.dart';
 import '../widgets/task_card.dart';
 import '../models/task.dart';
@@ -28,6 +30,8 @@ class _TaskScreenState extends State<TaskScreen> {
   var settingsBox = Hive.box<AppSettings>('settings');
   String selectedDate = "Today";
   String showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now());
+  bool showTip = false;
+
 
   void _navigateToAddTaskScreen(BuildContext context) {
     Navigator.push(
@@ -59,12 +63,33 @@ class _TaskScreenState extends State<TaskScreen> {
       }
     });
   }
+  final box = Hive.box<Task>('tasks');
+  Future<void> tipCheck () async {
+    if (!Hive.isBoxOpen('tasks')) {
+      await Hive.initFlutter();
+      if (!Hive.isAdapterRegistered(0)) {
+        Hive.registerAdapter(TaskAdapter()); // 👈 use your Task typeId
+      }
+      await Hive.openBox<Task>('tasks');
+    }
+    final tasks = box.values.toList();
+    if(tasks.isEmpty) {
+      await Future.delayed(Duration(seconds: 2));
+      setState(() => showTip = true);
+      await Future.delayed(Duration(seconds: 5));
+      setState(() => showTip = false);
+    }
+  } 
 
   
 @override
 void initState() {
   super.initState();
   _requestNotificationPermission();
+  Future.microtask(() async {
+    await tipCheck();
+    setState(() {}); // update UI after task loaded
+  });
 }
 void openBatterySettings() {
   final intent = AndroidIntent(
@@ -74,21 +99,20 @@ void openBatterySettings() {
   );
   intent.launch();
 }
-Future<void> _requestNotificationPermission() async {
-  if (!Platform.isAndroid) return;
-  await Future.delayed(Duration(seconds: 2));
-  AppSettings? currentSettings = settingsBox.get('userSettings');
-  print(currentSettings?.batteryUnrestricted);
-  if(currentSettings == null || !currentSettings.batteryUnrestricted) {
-    showBatteryDialog(context);
-  }
-  if (await Permission.notification.isDenied) {
-    await Permission.notification.request();
-    if ((await Permission.notification.isGranted)){
-      NotificationService().scheduleAlarmEveryMinute();
+  Future<void> _requestNotificationPermission() async {
+    if (!Platform.isAndroid) return;
+    await Future.delayed(Duration(seconds: 2));
+    bool alarmGranted = await AlarmPermissionHelper.hasAlarmPermission();
+    if (!alarmGranted) {
+      await AlarmPermissionHelper.requestAlarmPermission();
+    }
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+      if ((await Permission.notification.isGranted)){
+        NotificationService().scheduleAlarmEveryMinute();
+      }
     }
   }
-}
   
   bool quickLinksEnabled = false;
   void quickLinkWidget() {
@@ -231,8 +255,7 @@ Future<void> _requestNotificationPermission() async {
                   ),
                 ),
                 Padding(
-                  padding:
-                      const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
+                  padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -292,7 +315,7 @@ Future<void> _requestNotificationPermission() async {
                 ),
               ],
             ),
-
+            TipBanner(show: showTip),
             if(quickLinksEnabled)
               QuickLinks(
                 quickLinksEnabled:quickLinksEnabled,

@@ -68,6 +68,7 @@ flutter:
     - assets/audio/medium.mp3
     - assets/goIcon.png
     - assets/laterIcon.png
+    - assets/tip_logo.png
     - assets/audio/loud.mp3
 
   fonts:

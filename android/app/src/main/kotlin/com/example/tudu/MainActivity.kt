@@ -1,53 +1,43 @@
-package com.example.tudu
+package com.example.tudu // change to your package name
 
 import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.os.SystemClock
-import android.os.Bundle
+import android.os.Build
+import android.net.Uri
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.content.Intent
+import android.provider.Settings
 
-class MainActivity : FlutterActivity() {
-    private val CHANNEL = "custom.alarm.channel"
+class MainActivity: FlutterActivity() {
+    private val CHANNEL = "alarm_permission"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            CHANNEL
-        ).setMethodCallHandler { call, result ->
-            if (call.method == "scheduleAlarm") {
-                scheduleAlarm()
-                result.success(null)
-            } else if(call.method == "close") { 
-                finishAndRemoveTask()
-                result.success(null)
-            }
-            else {
-                result.notImplemented()
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler {
+            call, result ->
+            when (call.method) {
+                "requestPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                            data = Uri.parse("package:$packageName")
+                        }
+                        startActivity(intent)
+                    }
+                    result.success(null)
+                }
+                "hasPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                        result.success(alarmManager.canScheduleExactAlarms())
+                    } else {
+                        result.success(true) // below Android 12, permission not required
+                    }
+                }
+                else -> result.notImplemented()
             }
         }
-    }
-
-    private fun scheduleAlarm() {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AlarmReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val triggerAt = SystemClock.elapsedRealtime() + 10_000 // 10 seconds from now
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.ELAPSED_REALTIME_WAKEUP,
-            triggerAt,
-            pendingIntent
-        )
     }
 }

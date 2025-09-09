@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/task.dart';
 import 'package:intl/intl.dart';
@@ -15,6 +16,17 @@ class TaskCard extends StatelessWidget {
     required this.id,
     required this.date
   });
+
+  void toast (String msg) {
+    Fluttertoast.showToast(
+      msg: msg,
+      toastLength: Toast.LENGTH_SHORT, // or Toast.LENGTH_LONG
+      gravity: ToastGravity.CENTER, // or TOP, CENTER
+      backgroundColor: Colors.black,
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
+  }
 
   void _navigateToAddTaskScreen(BuildContext context, String addTaskId) {
     Navigator.push(
@@ -83,15 +95,28 @@ class TaskCard extends StatelessWidget {
       box.put(id, task);
     }
   }
+  bool isTimePassed(String fromTime) {
+    final now = DateTime.now();
+    final parts = fromTime.split(":");
+    final hour = int.parse(parts[0]);
+    final minute = int.parse(parts[1]);
+    final taskTime = DateTime(now.year, now.month, now.day, hour, minute);
+    return now.isAfter(taskTime);
+  }
+
 
   void handleCheckMark() {
     final box = Hive.box<Task>('tasks');
     final task = box.get(id);
     if (task != null) {
-      if (!task.taskCompletionDates.contains(date)) {
-        task.taskCompletionDates.add(date);
+      if(isTimePassed(task.fromTime)) {
+        if (!task.taskCompletionDates.contains(date)) {
+          task.taskCompletionDates.add(date);
+        }
+        box.put(id, task);
+      } else {
+        toast("This task is scheduled for a future time. You cannot complete it now.");
       }
-      box.put(id, task);
     }
   }
   @override
