@@ -6,13 +6,13 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:tudu/notification_service/effect_service.dart';
+import 'package:tudu/services/effect_service.dart';
 import 'package:tudu/screens/onboarding_screen.dart';
 import 'package:volume_controller/volume_controller.dart';
 import '../models/settings.dart';
 import '../models/task.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'alarm_screen.dart';
+import '../screens/alarm_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});

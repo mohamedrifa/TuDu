@@ -4,8 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'database/hive_service.dart';
-import 'notification_service/notification_service.dart'; 
-import 'notification_service/alarm_screen.dart';
+import 'services/notification_service.dart'; 
+import 'screens/alarm_screen.dart';
 
 
 void main() async {

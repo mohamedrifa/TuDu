@@ -5,9 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:tudu/notification_service/effect_service.dart';
+import 'package:tudu/services/effect_service.dart';
 import 'package:volume_controller/volume_controller.dart';
-import 'package:tudu/notification_service/notification_service.dart';
+import 'package:tudu/services/notification_service.dart';
 import '../models/task.dart';
 
 class AlarmScreen extends StatefulWidget {
