@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:tudu/services/effect_service.dart';
+import 'package:tudu/services/task_widget_helper.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:tudu/services/notification_service.dart';
 import '../models/task.dart';
@@ -199,7 +200,8 @@ class _AlarmScreenState extends State<AlarmScreen> {
           DateFormat('d EEE MMM yyyy').format(DateTime.now());
       task.taskCompletionDates.add(date);
       await box.put(widget.taskId, task);
-
+      final tasks = box.values.toList();
+      TaskWidgetHelper.updateTasksWidget(tasks);
       await notificationPlugin.show(
         9999,
         'Task Started',

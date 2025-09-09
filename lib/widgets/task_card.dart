@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:tudu/services/task_widget_helper.dart';
 import '../models/task.dart';
 import 'package:intl/intl.dart';
 import '../screens/task_adding_screen.dart';
@@ -114,6 +115,8 @@ class TaskCard extends StatelessWidget {
           task.taskCompletionDates.add(date);
         }
         box.put(id, task);
+        final tasks = box.values.toList();
+        TaskWidgetHelper.updateTasksWidget(tasks);
       } else {
         toast("This task is scheduled for a future time. You cannot complete it now.");
       }

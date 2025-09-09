@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tudu/services/effect_service.dart';
 import 'package:tudu/screens/onboarding_screen.dart';
+import 'package:tudu/services/task_widget_helper.dart';
 import 'package:volume_controller/volume_controller.dart';
 import '../models/settings.dart';
 import '../models/task.dart';
@@ -119,6 +120,9 @@ class NotificationService extends State<NotificationScreen> {
       DateTime parsedTime = timeFormat.parse(filteredTasks[i].fromTime);
       // Combine with today's date
       DateTime now = DateTime.now();
+      if (now.hour == 0 && now.minute == 0) {
+        TaskWidgetHelper.updateTasksWidget(tasks);
+      }
       DateTime todayTime = DateTime(
         now.year,
         now.month,
@@ -277,6 +281,8 @@ class MediumNotification {
 
         final box = Hive.box<Task>('tasks');
         final task = box.get(idFromPayload);
+        final tasks = box.values.toList();
+        TaskWidgetHelper.updateTasksWidget(tasks);
 
         if (response.actionId == 'action_1') {
           print('✅ Later button pressed');
@@ -412,6 +418,8 @@ class FullScreenNotification {
 
         final box = Hive.box<Task>('tasks');
         final task = box.get(taskId);
+        final tasks = box.values.toList();
+        TaskWidgetHelper.updateTasksWidget(tasks);
 
         if (response.actionId == 'action_1') {
           debugPrint('Later pressed');

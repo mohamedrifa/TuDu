@@ -2,6 +2,7 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:path_provider/path_provider.dart';
 import 'database/hive_service.dart';
 import 'services/notification_service.dart'; 
@@ -16,6 +17,9 @@ void main() async {
   await AndroidAlarmManager.initialize();
   await MediumNotification().initNotification(); 
   runApp(MyApp());
+
+  // ignore: deprecated_member_use
+  HomeWidget.registerBackgroundCallback(backgroundCallback);
 }
 
 class MyApp extends StatefulWidget {
@@ -60,12 +64,20 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Alarm App',
+      debugShowCheckedModeBanner: false,
+      title: 'Tudu',
       home: _startPage
     );
   }
 }
 
+Future<void> backgroundCallback(Uri? uri) async {
+  if (uri != null && uri.path == 'toggleTask') {
+    // ignore: unused_local_variable
+    String taskId = uri.queryParameters['id'] ?? '';
+    // Mark task complete
+  }
+}
 
 
 class AlarmService {

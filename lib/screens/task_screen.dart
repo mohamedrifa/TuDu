@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tudu/models/settings.dart';
+import 'package:tudu/services/task_widget_helper.dart';
 import 'package:tudu/widgets/tip_banner.dart';
 import '../services/alarm_permission_helper.dart';
 import '../services/notification_service.dart';
@@ -79,6 +80,7 @@ class _TaskScreenState extends State<TaskScreen> {
       await Future.delayed(Duration(seconds: 5));
       setState(() => showTip = false);
     }
+    TaskWidgetHelper.updateTasksWidget(tasks);
   } 
 
   
