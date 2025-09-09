@@ -6,9 +6,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:tudu/main.dart';
+import 'package:tudu/notification_service/effect_service.dart';
 import 'package:tudu/screens/onboarding_screen.dart';
-import 'package:vibration/vibration.dart';
 import 'package:volume_controller/volume_controller.dart';
 import '../models/settings.dart';
 import '../models/task.dart';
@@ -377,7 +376,6 @@ class MediumNotification {
   }
 }
 
-
 class FullScreenNotification {
   FullScreenNotification._privateConstructor();
   static final FullScreenNotification _instance =
@@ -386,7 +384,6 @@ class FullScreenNotification {
 
   final FlutterLocalNotificationsPlugin notificationPlugin =
       FlutterLocalNotificationsPlugin();
-  final AudioPlayer player = AudioPlayer();
   String taskId = "";
   bool _listening = false;
 
@@ -398,7 +395,7 @@ class FullScreenNotification {
     await notificationPlugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
-        player.stop();
+        await EffectService().stopEffect();
         String? idFromPayload = response.payload;
         if (idFromPayload == null) return;
         final parts = idFromPayload.split('|');
@@ -434,7 +431,7 @@ class FullScreenNotification {
               _simpleNotificationDetails(),
             );
           }
-          cancelNotification();
+          cancelById(taskId);
         } else {
           debugPrint('Notification tapped');
         }
@@ -519,38 +516,14 @@ class FullScreenNotification {
     _startListening();
   }
 
-  void startRepeatedVibration() async {
-    bool? hasVibrator = await Vibration.hasVibrator();
-    if (hasVibrator) {
-        Vibration.vibrate(
-          pattern: [500, 1000, 500, 1000], // vibrate, pause, vibrate, pause
-          repeat: 0, // repeat indefinitely from index 0
-      );
-    }
-  }
-
   void _startListening() {
     if (!_listening) {
       VolumeController().listener((volume) {
-        stopEffect();
+        EffectService().stopEffect();
       });
       _listening = true;
     }
   }
-
-  Future<void> stopEffect() async {
-    try {
-      await player.stop(); // ensure it really stops
-    } catch (e) {
-      debugPrint("Error stopping audio: $e");
-    }
-    try {
-      await Vibration.cancel();
-    } catch (e) {
-      debugPrint("Error stopping vibration: $e");
-    }
-  }
-
   Future<void> ringtoneHandler() async {
     if (Hive.isBoxOpen('settings')) {
       await Hive.box<AppSettings>('settings').close();
@@ -558,20 +531,20 @@ class FullScreenNotification {
     final settingsBox = await Hive.openBox<AppSettings>('settings');
     final userSettings = settingsBox.get('userSettings');
     final tonePath = userSettings?.loudAlertTone;
-    startRepeatedVibration();
-    await player.setReleaseMode(ReleaseMode.loop);
+    EffectService().startVibration();
     if (tonePath != null && tonePath.isNotEmpty) {
-      await player.play(DeviceFileSource(tonePath));
+      await EffectService().play(tonePath);
     } else {
-      await player.play(AssetSource('audio/loud.mp3'));
+      await EffectService().playAsset('audio/loud.mp3');
     }
   }
   Future<void> cancelById (taskId) async {
     int id = int.parse(taskId) % 2147483647;
     await notificationPlugin.cancel(id);
+    EffectService().stopEffect();
   }
   Future<void> cancelNotification () async {
     await notificationPlugin.cancelAll();
-    stopEffect();
+    EffectService().stopEffect();
   }
 }

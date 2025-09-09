@@ -1,15 +1,13 @@
 // ignore_for_file: unused_field
-
 import 'dart:async';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:tudu/notification_service/effect_service.dart';
+import 'package:volume_controller/volume_controller.dart';
 import 'package:tudu/notification_service/notification_service.dart';
-import 'package:vibration/vibration.dart';
-
 import '../models/task.dart';
 
 class AlarmScreen extends StatefulWidget {
@@ -36,7 +34,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
   late Timer _timer;
   bool isExpanded = false;
   bool _launchedFromNotification = false;
-  final AudioPlayer player = AudioPlayer();
+  double _volume = 0.5;
   var task;
   final box = Hive.box<Task>('tasks');
 
@@ -62,16 +60,6 @@ class _AlarmScreenState extends State<AlarmScreen> {
 
   void GestDetect () {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
-  }
-
-  void startRepeatedVibration() async {
-    bool? hasVibrator = await Vibration.hasVibrator();
-    if (hasVibrator) {
-        Vibration.vibrate(
-          pattern: [500, 1000, 500, 1000], // vibrate, pause, vibrate, pause
-          repeat: 0, // repeat indefinitely from index 0
-      );
-    }
   }
 
   Future<void> taskInitialize() async {
@@ -129,6 +117,15 @@ class _AlarmScreenState extends State<AlarmScreen> {
     super.initState();
     startElipseAnimation();
     _checkLaunchDetails();
+
+    VolumeController().showSystemUI = false; // 🚫 hide default popup
+    VolumeController().getVolume().then((vol) {
+      setState(() => _volume = vol);
+    });
+
+    VolumeController().listener((vol) {
+      setState(() => _volume = vol);
+    });
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
     Future.microtask(() async {
       await taskInitialize();
@@ -145,12 +142,19 @@ class _AlarmScreenState extends State<AlarmScreen> {
       });
     }
   }
+  void volumeadjust () {
+    VolumeController().setVolume((_volume + 0.1).clamp(0.0, 1.0));
+    VolumeController().setVolume((_volume - 0.1).clamp(0.0, 1.0));
+    VolumeController().setVolume((_volume + 0.1).clamp(0.0, 1.0));
+    VolumeController().setVolume((_volume - 0.1).clamp(0.0, 1.0));
+  }
 
   @override
   void dispose() {
-    super.dispose();
     _timer.cancel();
-    FullScreenNotification().stopEffect();
+    EffectService().stopEffect();
+    VolumeController().removeListener();
+    super.dispose();
   }
 
   void startElipseAnimation() {
@@ -178,7 +182,8 @@ class _AlarmScreenState extends State<AlarmScreen> {
   }
 
   void handleLater() {
-    FullScreenNotification().stopEffect();
+    EffectService().stopEffect();
+    volumeadjust();
     FullScreenNotification().cancelById(widget.taskId);
     _timer.cancel();
     if (_launchedFromNotification) {
@@ -202,7 +207,8 @@ class _AlarmScreenState extends State<AlarmScreen> {
         _simpleNotificationDetails(),
       );
     }
-    FullScreenNotification().stopEffect();
+    EffectService().stopEffect();
+    volumeadjust();
     FullScreenNotification().cancelById(widget.taskId);
     _timer.cancel();
     if (_launchedFromNotification) {
@@ -213,7 +219,8 @@ class _AlarmScreenState extends State<AlarmScreen> {
   }
 
   void handleSkip() {
-    FullScreenNotification().stopEffect();
+    EffectService().stopEffect();
+    volumeadjust();
     FullScreenNotification().cancelById(widget.taskId);
     _timer.cancel();
     if (_launchedFromNotification) {

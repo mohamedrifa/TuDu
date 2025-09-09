@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/settings.dart';
 import '../notification_service/notification_service.dart';
 import 'task_screen.dart';
 import 'package:intl/intl.dart';
@@ -510,8 +509,6 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                         children: [
                           ElevatedButton(
           onPressed: () {
-            // Sample data
-            AppSettings settings = AppSettings(loudAlertTone: "", mediumAlertTone: '', batteryUnrestricted: true);
             Task task = Task(
               id: widget.taskId,
       title: taskName,

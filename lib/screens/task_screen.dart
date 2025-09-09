@@ -12,7 +12,6 @@ import '../widgets/quickLinks.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
-import '../notification_service/notification_service.dart';
 import 'dart:io';
 
 // ignore: must_be_immutable
