@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../widgets/confirm_delete_dialog.dart';
+import '../widgets/save_button.dart';
 import 'task_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -673,87 +675,71 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           const SizedBox(height: 20),
                           Align(
                             alignment: Alignment.centerRight,
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () { submitTask();},
-                                borderRadius: BorderRadius.circular(25),
-                                child: Container(
-                                  height: 56,
-                                  width: 119,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF0D0C10),
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  child: Center(
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          widget.isEdit ? "Edit" : "ADD",
-                                          style: const TextStyle(
-                                            color: Color(0xFFEBFAF9),
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.w600,
-                                            fontFamily: 'Poppins',
-                                          ),
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Image(
-                                          image: widget.isEdit ? AssetImage("assets/editIcon.png"): AssetImage("assets/addTaskIcon.png"), 
-                                          width: 30, 
-                                          height: 30
-                                        )
-                                      ],
-                                    )
-                                  ),
-                                ),
-                              ),
+                            child: SaveButton(
+                              isEdit: widget.isEdit,
+                              onPressed: () {
+                                submitTask();
+                              },
                             ),
                           )
                         ],
                       ),
                     ),
                     if(widget.isEdit)  
-                      Material(
-                        child: InkWell(
-                          onTap: () => {
-                            deletetask()
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            height: 64,
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF802020), Color(0xFF551515)],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
+                      Padding(
+                        padding: EdgeInsets.only(left: 16, right: 16, bottom: 45),
+                        child: Material(
+                          color: Color(0xFF313036),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(32),
+                            onTap: () => 
+                              showConfirmDeleteDialog(
+                              context,
+                              onConfirm: () => deletetask(),
+                            ),
+                            child: Container(
+                              width: double.infinity,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF313036), // background to match screenshot
+                                borderRadius: BorderRadius.circular(32),
+                                border: Border.all(
+                                  color: Color(0xFFADABB5), // subtle white border
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.white.withOpacity(0.4),
+                                    offset: const Offset(0, 4),
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Image.asset(
+                                    "assets/dustBin.png",
+                                    width: 24,
+                                    height: 24,
+                                    color: const Color(0xFFEBFAF9), // make icon white
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    "Delete Task",
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 22,
+                                      color: Color(0xFFEBFAF9),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Image.asset(
-                                  "assets/dustBin.png",
-                                  width: 21,
-                                  height: 22.91,
-                                ),
-                                const SizedBox(width: 10),
-                                const Text(
-                                  "Delete",
-                                  style: TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 24,
-                                    color: Color(0xFFEBFAF9),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
+                          ),
                         ),
-                      )
+                      ),
                   ],
                 ),
               ),

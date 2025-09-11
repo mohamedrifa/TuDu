@@ -48,35 +48,7 @@ flutter_icons:
 flutter:
   uses-material-design: true
   assets:
-    - assets/logo.png
-    - assets/dots.png
-    - assets/pageMark.png
-    - assets/emptyTaskImg.png
-    - assets/emptytaskArrow.png
-    - assets/addTaskPlus.png
-    - assets/addTaskArrowBack.png
-    - assets/calender_icon.png
-    - assets/updown.png
-    - assets/loudAlertOn.png
-    - assets/loudAlertOff.png
-    - assets/mediumAlertOn.png
-    - assets/mediumAlertOff.png
-    - assets/dropDownArrow.png
-    - assets/addTaskIcon.png
-    - assets/editIcon.png
-    - assets/loudAlertOn1.png
-    - assets/loudAlertOff1.png
-    - assets/mediumAlertOn1.png
-    - assets/mediumAlertOff1.png
-    - assets/taskDone.png
-    - assets/taskPending.png
-    - assets/dustBin.png
-    - assets/tone.png
-    - assets/audio/medium.mp3
-    - assets/goIcon.png
-    - assets/laterIcon.png
-    - assets/tip_logo.png
-    - assets/audio/loud.mp3
+    - assets/
 
   fonts:
     - family: Poppins
