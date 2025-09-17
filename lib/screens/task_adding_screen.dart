@@ -617,25 +617,21 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           const SizedBox(height: 24),
                           _buildLabel("Tags"),
                           const SizedBox(height: 24),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 11.5),
-                            child: Wrap(
-                              spacing: 11,
-                              runSpacing: 11,
-                              children: [
-                                _buildTag("Upskill"),
-                                _buildTag("Work"),
-                                _buildTag("Personal"),
-                                _buildTag("Health"),
-                                _buildTag("Exercise"),
-                                _buildTag("Social"),
-                                _buildTag("Spiritual"),
-                                _buildTag("Finance"),
-                                _buildTagAdder(),
-                              ],
-                            ),
+                          Wrap(
+                            spacing: 11,
+                            runSpacing: 11,
+                            children: [
+                              _buildTag("Upskill"),
+                              _buildTag("Work"),
+                              _buildTag("Personal"),
+                              _buildTag("Health"),
+                              _buildTag("Exercise"),
+                              _buildTag("Social"),
+                              _buildTag("Spiritual"),
+                              _buildTag("Finance"),
+                              _buildTagAdder(),
+                            ],
                           ),
-                          
                           const SizedBox(height: 24),
                           Row(
                             children: [
@@ -1086,8 +1082,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   final bool showBackground = _tagFocusNode.hasFocus && selectedTag.isNotEmpty;
 
   return Container(
-    height: 27,
-    padding: const EdgeInsets.only(left: 12, right: 12, top: 4, bottom: 1.5),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
     decoration: BoxDecoration(
       color: showBackground ? const Color(0xFFFED189) : Colors.transparent,
       borderRadius: BorderRadius.circular(10),
@@ -1102,17 +1097,16 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         maxLines: 1,
         style: const TextStyle(
           fontFamily: 'Poppins',
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: FontWeight.w300,
           color: Color(0xFF1B1A1E),
         ),
         decoration: const InputDecoration(
           isDense: true,
-          contentPadding: EdgeInsets.symmetric(vertical: 4),
           hintText: "+Add...",
           hintStyle: TextStyle(
             fontFamily: 'Poppins',
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.w300,
             color: Color(0xFFFEE5BD),
           ),
