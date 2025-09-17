@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tudu/services/task_widget_helper.dart';
 import '../widgets/confirm_delete_dialog.dart';
 import '../widgets/save_button.dart';
 import 'task_screen.dart';
@@ -296,6 +297,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       taskScheduleddate: DateFormat('d MM yyyy').format(DateTime.now()),
     );
     box.put(widget.taskId, task); 
+    widgetUpdate();
     toast(widget.isEdit? "Task Edited" : "Task Added");
     _navigateToHome();
   }
@@ -323,10 +325,23 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       ),
     );
   }
+  final box = Hive.box<Task>('tasks');
+  Future<void> widgetUpdate () async {
+    if (!Hive.isBoxOpen('tasks')) {
+      await Hive.initFlutter();
+      if (!Hive.isAdapterRegistered(0)) {
+        Hive.registerAdapter(TaskAdapter()); // 👈 use your Task typeId
+      }
+      await Hive.openBox<Task>('tasks');
+    }
+    final tasks = box.values.toList();
+    TaskWidgetHelper.updateTasksWidget(tasks);
+  } 
 
   void deletetask() {
     final box = Hive.box<Task>('tasks');
     box.delete(widget.taskId);
+    widgetUpdate();
     toast("Task Deleted");
     _navigateToHome();
   }
@@ -625,17 +640,20 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           Row(
                             children: [
                               SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: Checkbox(
-                                  value: isImportant,
-                                  onChanged: (val) {
-                                    setState(() {
-                                      isImportant = val!;
-                                    });
-                                  },
-                                  activeColor: const Color(0xFF268D8C),
-                                  checkColor: Colors.black,
+                                width: 24,
+                                height: 24,
+                                child: Transform.scale(
+                                  scale: 1.4, // adjust until it fills parent
+                                  child: Checkbox(
+                                    value: isImportant,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        isImportant = val!;
+                                      });
+                                    },
+                                    activeColor: const Color(0xFF268D8C),
+                                    checkColor: Colors.black,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 19), 
@@ -1044,7 +1062,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         },
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             color: selectedTag == text ? const Color(0xFFFED289) : const Color.fromARGB(0, 43, 46, 60),
             borderRadius: BorderRadius.circular(10),
@@ -1069,7 +1087,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
 
   return Container(
     height: 27,
-    padding: const EdgeInsets.only(left: 8, right: 8, top: 1.5, bottom: 1.5),
+    padding: const EdgeInsets.only(left: 12, right: 12, top: 4, bottom: 1.5),
     decoration: BoxDecoration(
       color: showBackground ? const Color(0xFFFED189) : Colors.transparent,
       borderRadius: BorderRadius.circular(10),
