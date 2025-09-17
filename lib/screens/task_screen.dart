@@ -408,6 +408,16 @@ void openBatterySettings() {
   }
 
   Widget _emptyTaskWidget( BuildContext context) {
+    DateTime today = DateTime.now();
+    DateTime selected = DateFormat('d EEE MMM yyyy').parse(showDate);
+
+    // Normalize both to remove time part
+    today = DateTime(today.year, today.month, today.day);
+    selected = DateTime(selected.year, selected.month, selected.day);
+
+    bool isPast = selected.isBefore(today);
+    bool isToday = selected.isAtSameMomentAs(today);
+    final bool hasNoTasksGlobally = box.values.isEmpty;
     return SingleChildScrollView(
       child:  Center(
       child: Column(
@@ -419,7 +429,7 @@ void openBatterySettings() {
                 style: TextStyle(color: Colors.black, fontSize: 18),
                 children: [
                   TextSpan(
-                    text: "‘’you Have No ",
+                    text: isToday ? "‘’you Have No " : isPast ? "‘’No " : "‘’you Have No ",
                     style: TextStyle(
                       color: Color(0xFFEBFAF9),
                       fontFamily: 'Poppins',
@@ -437,7 +447,7 @@ void openBatterySettings() {
                     ),
                   ),
                   TextSpan(
-                    text: " Yet”",
+                    text: isToday? " Yet”": isPast ? " For This Day”" : " To Do”",
                     style: TextStyle(
                       color: Color(0xFFEBFAF9),
                       fontFamily: 'Poppins',
@@ -457,6 +467,7 @@ void openBatterySettings() {
             ),
 
           ),
+          if(!isPast)
           Stack(
             children: [
               Column(
@@ -479,7 +490,7 @@ void openBatterySettings() {
                               ),
                             ),
                             TextSpan(
-                              text: "Add Your First Task",
+                              text: hasNoTasksGlobally ? "Add Your First Task" : "Add Your Task",
                               style: TextStyle(
                                 color: Color(0xFFFED289),
                                 fontFamily: 'Poppins',

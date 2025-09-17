@@ -8,6 +8,16 @@ class TaskWidgetHelper {
 
     final todayTasks = tasks.where((t) => t.date == today).toList();
 
+    todayTasks.sort((a, b) {
+      final aParts = a.fromTime.split(':').map(int.parse).toList();
+      final bParts = b.fromTime.split(':').map(int.parse).toList();
+
+      final aMinutes = aParts[0] * 60 + aParts[1];
+      final bMinutes = bParts[0] * 60 + bParts[1];
+
+      return aMinutes.compareTo(bMinutes);
+    });
+
     if (todayTasks.isEmpty) {
       await HomeWidget.saveWidgetData<String>(
         'today_tasks',
