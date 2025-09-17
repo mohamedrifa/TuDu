@@ -368,14 +368,16 @@ void openBatterySettings() {
   }
 
   Widget _buildAddNewButton(BuildContext context) {
-    return Container(
+  return SafeArea(
+    bottom: true,
+    minimum: const EdgeInsets.only(bottom: 8), // keeps it above system nav
+    child: Container(
       width: double.infinity,
       alignment: Alignment.centerRight,
       child: Material(
         color: Colors.transparent,
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.6),
+          padding: const EdgeInsets.only(left: 16.0,right: 16.0, bottom: 14.6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -404,8 +406,10 @@ void openBatterySettings() {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _emptyTaskWidget( BuildContext context) {
     DateTime today = DateTime.now();
