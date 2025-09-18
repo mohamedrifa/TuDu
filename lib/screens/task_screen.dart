@@ -87,10 +87,10 @@ class _TaskScreenState extends State<TaskScreen> {
 @override
 void initState() {
   super.initState();
-  _requestNotificationPermission();
   Future.microtask(() async {
     await tipCheck();
     setState(() {}); // update UI after task loaded
+    _requestNotificationPermission();
   });
 }
 void openBatterySettings() {

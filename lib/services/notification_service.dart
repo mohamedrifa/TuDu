@@ -1,28 +1,19 @@
 import 'dart:ui';
-
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:tudu/services/effect_service.dart';
-import 'package:tudu/screens/onboarding_screen.dart';
 import 'package:tudu/services/task_widget_helper.dart';
 import 'package:volume_controller/volume_controller.dart';
 import '../models/settings.dart';
 import '../models/task.dart';
+import '../main.dart' show navigatorKey;
 import 'package:audioplayers/audioplayers.dart';
 import '../screens/alarm_screen.dart';
 
-class NotificationScreen extends StatefulWidget {
-  const NotificationScreen({super.key});
-
-  @override
-  State<NotificationScreen> createState() => NotificationService();
-}
-
-class NotificationService extends State<NotificationScreen> {
+class NotificationService {
   Future<void> scheduleAlarmEveryMinute() async {
     const int alarmId = 1;
     const Duration interval = Duration(minutes: 1);
@@ -36,56 +27,44 @@ class NotificationService extends State<NotificationScreen> {
       rescheduleOnReboot: true,
     );
   }
-  Future<void> settingsUpdater() async {
-    final appDocDir = await getApplicationDocumentsDirectory();
-    Hive.init(appDocDir.path);
-    if (!Hive.isAdapterRegistered(SettingsAdapter().typeId)) {
-      Hive.registerAdapter(SettingsAdapter());
-    }
-    var settingsBox = await Hive.openBox<AppSettings>('settings');
-    AppSettings? currentSettings = settingsBox.get('userSettings');
-    if (currentSettings == null || !currentSettings.batteryUnrestricted) {
-      print("✅ alarm inside");
-      final updatedSettings = AppSettings(
-        mediumAlertTone: currentSettings?.mediumAlertTone ?? "",
-        loudAlertTone: currentSettings?.loudAlertTone ?? "",
-        batteryUnrestricted: true,
-      );
-      await settingsBox.put('userSettings', updatedSettings);
-    }
-  }
 
   bool allDaysFalse(List weekDays) {
-    for (var day in weekDays) {
+    for (final day in weekDays) {
       if (day) return false;
     }
     return true;
   }
 
-  bool filteredList(String date, List<bool> weekDays, bool isImportant, String taskScheduleddate) {
+  bool filteredList(
+    String date,
+    List<bool> weekDays,
+    bool isImportant,
+    String taskScheduleddate,
+  ) {
     final now = DateTime.now();
+
     if (allDaysFalse(weekDays)) {
-      // Handle one-time tasks
+      // One-time tasks
       try {
         final taskDate = DateFormat("d MM yyyy").parse(date);
-        return DateFormat("d MM yyyy").format(taskDate) == DateFormat("d MM yyyy").format(now);
+        final todayStr = DateFormat("d MM yyyy").format(now);
+        return DateFormat("d MM yyyy").format(taskDate) == todayStr;
       } catch (e) {
         print("❌ Error parsing task date: $e");
         return false;
       }
     } else {
-      // Handle recurring tasks
-      final dayOfWeekIndex = now.weekday - 1; // Dart: Mon = 1, ..., Sun = 7 → index 0-6
+      // Recurring tasks
+      final int dayOfWeekIndex = now.weekday - 1; // 0 (Mon) ... 6 (Sun)
       return weekDays[dayOfWeekIndex];
     }
   }
-
 
   Future<void> _handleAlarmCallback() async {
     WidgetsFlutterBinding.ensureInitialized();
     print("✅ alarmCallback() triggered");
     await Hive.initFlutter();
-    settingsUpdater();
+
     if (!Hive.isAdapterRegistered(TaskAdapter().typeId)) {
       Hive.registerAdapter(TaskAdapter());
     }
@@ -96,134 +75,166 @@ class NotificationService extends State<NotificationScreen> {
     if (Hive.isBoxOpen('tasks')) {
       await Hive.box<Task>('tasks').close();
     }
-    final taskBox = await Hive.openBox<Task>('tasks'); // now it's refreshed
+    final taskBox = await Hive.openBox<Task>('tasks'); // refreshed
+
     if (Hive.isBoxOpen('settings')) {
       await Hive.box<AppSettings>('settings').close();
     }
     final settingsBox = await Hive.openBox<AppSettings>('settings');
-    final AppSettings? userSettings = await settingsBox.get('userSettings');
+    final AppSettings? userSettings = settingsBox.get('userSettings');
+
     final tasks = taskBox.values.toList();
-    
-    final  filteredTasks = await tasks
-        .where((task) => filteredList(
-              task.date,
-              task.weekDays,
-              task.important,
-              task.taskScheduleddate,
-            ))
+
+    final filteredTasks = tasks
+        .where(
+          (task) => filteredList(
+            task.date,
+            task.weekDays,
+            task.important,
+            task.taskScheduleddate,
+          ),
+        )
         .toList();
-    print("outside forloop "+ filteredTasks.length.toString());
-    String Message = "";
+
+    print("outside forloop ${filteredTasks.length}");
+
+    String message = "";
     for (int i = 0; i < filteredTasks.length; i++) {
       print("inside for loop");
-      DateFormat timeFormat = DateFormat("HH:mm");
-      DateTime parsedTime = timeFormat.parse(filteredTasks[i].fromTime);
-      // Combine with today's date
-      DateTime now = DateTime.now();
+
+      final timeFormat = DateFormat("HH:mm");
+      final DateTime parsedTime = timeFormat.parse(filteredTasks[i].fromTime);
+
+      final DateTime now = DateTime.now();
+
       if (now.hour == 0 && now.minute == 0) {
         TaskWidgetHelper.updateTasksWidget(tasks);
       }
-      DateTime todayTime = DateTime(
+
+      final DateTime todayTime = DateTime(
         now.year,
         now.month,
         now.day,
         parsedTime.hour,
         parsedTime.minute,
       );
+      DateTime toFireAt;
       // Subtract 1 minute
-      DateTime reducedTime = todayTime.subtract(Duration(minutes: 1));
-      // Subtract alert time
+      final DateTime reducedTime = todayTime.subtract(const Duration(minutes: 1));
+
+      // BEFORE alerts
       DateTime beforeTime;
       switch (filteredTasks[i].alertBefore) {
         case "5 Mins":
-          beforeTime = reducedTime.subtract(Duration(minutes: 5));
-          Message = "5 Minutes to Start ";
+          beforeTime = reducedTime.subtract(const Duration(minutes: 5));
+          toFireAt = reducedTime.subtract(const Duration(minutes: 4));
+          message = "5 Minutes to Start ";
           break;
         case "10 Mins":
-          beforeTime = reducedTime.subtract(Duration(minutes: 10));
-          Message = "10 Minutes to Start ";
+          beforeTime = reducedTime.subtract(const Duration(minutes: 10));
+          toFireAt = reducedTime.subtract(const Duration(minutes: 9));
+          message = "10 Minutes to Start ";
           break;
         case "15 Mins":
-          beforeTime = reducedTime.subtract(Duration(minutes: 15));
-          Message = "15 Minutes to Start ";
+          beforeTime = reducedTime.subtract(const Duration(minutes: 15));
+          toFireAt = reducedTime.subtract(const Duration(minutes: 14));
+          message = "15 Minutes to Start ";
           break;
         default:
+          toFireAt = reducedTime.add(const Duration(minutes: 1));
           beforeTime = reducedTime;
       }
-      String nowStr = timeFormat.format(DateTime.now());
-      String beforeStr = timeFormat.format(beforeTime);
+
+      final String nowStr = timeFormat.format(DateTime.now());
+      final String beforeStr = timeFormat.format(beforeTime);
       print("$nowStr and $beforeStr");
-      if (beforeStr == nowStr) {        
-        DateFormat nowFormat = DateFormat("d EEE MMM yyyy");
-        String nowDate = nowFormat.format(DateTime.now());
-        if(!filteredTasks[i].taskCompletionDates.contains(nowDate)) {
-          if(filteredTasks[i].beforeMediumAlert) {
+
+      if (beforeStr == nowStr) {
+        final nowFormat = DateFormat("d EEE MMM yyyy");
+        final String nowDate = nowFormat.format(DateTime.now());
+
+        if (!filteredTasks[i].taskCompletionDates.contains(nowDate)) {
+          if (filteredTasks[i].beforeMediumAlert) {
             MediumNotification().showNotification(
               userSettings ??
-                AppSettings(
-                  mediumAlertTone: '',
-                  loudAlertTone: '',
-                  batteryUnrestricted: true,
-                ),
+                  AppSettings(
+                    mediumAlertTone: '',
+                    loudAlertTone: '',
+                    batteryUnrestricted: true,
+                  ),
               filteredTasks[i],
-              Message,
+              message,
+              toFireAt,
             );
           }
-          if(filteredTasks[i].beforeLoudAlert) {
+          if (filteredTasks[i].beforeLoudAlert) {
             FullScreenNotification().showNotification(
               filteredTasks[i],
-              Message,
+              message,
+              toFireAt
             );
           }
         }
       }
+
+      // AFTER alerts
       DateTime afterTime;
       switch (filteredTasks[i].alertAfter) {
         case "On Time":
           afterTime = reducedTime;
-          Message = "Its Time to Start ";
+          toFireAt = reducedTime.add(const Duration(minutes: 1));
+          message = "Its Time to Start ";
           break;
         case "5 Mins":
-          afterTime = reducedTime.add(Duration(minutes: 5));
-          Message = "5 Mins Passed for ";
+          afterTime = reducedTime.add(const Duration(minutes: 5));
+          toFireAt = reducedTime.add(const Duration(minutes: 6));
+          message = "5 Mins Passed for ";
           break;
         case "10 Mins":
-          afterTime = reducedTime.add(Duration(minutes: 10));
-          Message = "10 Mins Passed for ";
+          afterTime = reducedTime.add(const Duration(minutes: 10));
+          toFireAt = reducedTime.add(const Duration(minutes: 11));
+          message = "10 Mins Passed for ";
           break;
         default:
           afterTime = reducedTime;
+          toFireAt = reducedTime.add(const Duration(minutes: 1));
       }
-      String afterStr = timeFormat.format(afterTime);
+
+      final String afterStr = timeFormat.format(afterTime);
       print("$nowStr and $afterStr");
+
       if (afterStr == nowStr) {
-        DateFormat nowFormat = DateFormat("d EEE MMM yyyy");
-        String nowDate = nowFormat.format(DateTime.now());
-        if(!filteredTasks[i].taskCompletionDates.contains(nowDate)) {
-          if(filteredTasks[i].afterMediumAlert) {
+        final nowFormat = DateFormat("d EEE MMM yyyy");
+        final String nowDate = nowFormat.format(DateTime.now());
+
+        if (!filteredTasks[i].taskCompletionDates.contains(nowDate)) {
+          if (filteredTasks[i].afterMediumAlert) {
             MediumNotification().showNotification(
               userSettings ??
-                AppSettings(
-                  mediumAlertTone: '',
-                  loudAlertTone: '',
-                  batteryUnrestricted: true,
-                ),
+                  AppSettings(
+                    mediumAlertTone: '',
+                    loudAlertTone: '',
+                    batteryUnrestricted: true,
+                  ),
               filteredTasks[i],
-              Message,
+              message,
+              toFireAt,
             );
           }
-          if(filteredTasks[i].afterLoudAlert) {
+          if (filteredTasks[i].afterLoudAlert) {
             FullScreenNotification().showNotification(
               filteredTasks[i],
-              Message,
+              message,
+              toFireAt,
             );
           }
         }
       }
     }
   }
+
   Future<void> stopPeriodicAlarm() async {
-    const int alarmId = 1; // Must match the ID used in scheduleAlarmEveryMinute
+    const int alarmId = 1; // must match scheduleAlarmEveryMinute
     final success = await AndroidAlarmManager.cancel(alarmId);
     if (success) {
       print('🛑 Periodic alarm canceled successfully');
@@ -231,10 +242,6 @@ class NotificationService extends State<NotificationScreen> {
       print('⚠️ Failed to cancel periodic alarm');
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return OnboardingScreen();}
 }
 
 // ✅ Top-level function — required for AndroidAlarmManager
@@ -246,7 +253,6 @@ void alarmCallback() {
   NotificationService()._handleAlarmCallback(); // async logic offloaded
 }
 
-
 class MediumNotification {
   MediumNotification._privateConstructor();
   static final MediumNotification _instance = MediumNotification._privateConstructor();
@@ -255,19 +261,16 @@ class MediumNotification {
   final FlutterLocalNotificationsPlugin notificationPlugin = FlutterLocalNotificationsPlugin();
   final AudioPlayer player = AudioPlayer();
   String taskId = "";
-  Future<void> initNotification() async {
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidSettings,
-    );
+  Future<void> initNotification() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidSettings);
 
     await notificationPlugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
         player.stop();
-        String? idFromPayload = response.payload;
+        final String? idFromPayload = response.payload;
         if (idFromPayload == null) return;
 
         // ✅ Ensure Hive is initialized and box is open
@@ -289,7 +292,7 @@ class MediumNotification {
         } else if (response.actionId == 'action_2') {
           print('✅ Go button pressed');
           if (task != null) {
-            String date = DateFormat('d EEE MMM yyyy').format(DateTime.now());
+            final date = DateFormat('d EEE MMM yyyy').format(DateTime.now());
             task.taskCompletionDates.add(date);
             await box.put(idFromPayload, task);
             print("✅ Task updated in Hive");
@@ -358,13 +361,14 @@ class MediumNotification {
     );
   }
 
-  Future<void> showNotification(AppSettings settings, Task tasks, String message) async {
-    DateTime now = DateTime.now();
-    int currentSecond = now.second;
-    await Future.delayed(Duration(seconds: 60 - currentSecond));
-
+  Future<void> showNotification(AppSettings settings, Task tasks, String message, DateTime toFireAt) async {
+    final DateTime now = DateTime.now();
+    final int currentSecond = now.second;
+    if(DateTime.now().isBefore(toFireAt)) {
+      await Future.delayed(Duration(seconds: 60 - currentSecond));
+    }
     taskId = tasks.id;
-    int id = int.parse(tasks.id) % 2147483647;
+    final int id = int.parse(tasks.id) % 2147483647;
 
     await notificationPlugin.show(
       id,
@@ -384,40 +388,40 @@ class MediumNotification {
 
 class FullScreenNotification {
   FullScreenNotification._privateConstructor();
-  static final FullScreenNotification _instance =
-      FullScreenNotification._privateConstructor();
+  static final FullScreenNotification _instance = FullScreenNotification._privateConstructor();
   factory FullScreenNotification() => _instance;
 
-  final FlutterLocalNotificationsPlugin notificationPlugin =
-      FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin notificationPlugin = FlutterLocalNotificationsPlugin();
   String taskId = "";
   bool _listening = false;
 
-  Future<void> initNotification(BuildContext context) async {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+  Future<void> initNotification() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidSettings);
 
     await notificationPlugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
         await EffectService().stopEffect();
-        String? idFromPayload = response.payload;
+
+        final String? idFromPayload = response.payload;
         if (idFromPayload == null) return;
+
         final parts = idFromPayload.split('|');
-        final taskId = parts[0];
-        final message = parts.length > 1 ? parts[1] : "";
+        final String tappedTaskId = parts[0];
+        final String message = parts.length > 1 ? parts[1] : "";
+
         // ✅ Ensure Hive is ready
         if (!Hive.isBoxOpen('tasks')) {
           await Hive.initFlutter();
           if (!Hive.isAdapterRegistered(0)) {
-            Hive.registerAdapter(TaskAdapter()); // 👈 use your Task typeId
+            Hive.registerAdapter(TaskAdapter()); // your Task typeId
           }
           await Hive.openBox<Task>('tasks');
         }
 
         final box = Hive.box<Task>('tasks');
-        final task = box.get(taskId);
+        final task = box.get(tappedTaskId);
         final tasks = box.values.toList();
         TaskWidgetHelper.updateTasksWidget(tasks);
 
@@ -427,8 +431,7 @@ class FullScreenNotification {
         } else if (response.actionId == 'action_2') {
           debugPrint('Go pressed');
           if (task != null) {
-            String date =
-                DateFormat('d EEE MMM yyyy').format(DateTime.now());
+            final date = DateFormat('d EEE MMM yyyy').format(DateTime.now());
             task.taskCompletionDates.add(date);
             await box.put(idFromPayload, task);
 
@@ -439,13 +442,13 @@ class FullScreenNotification {
               _simpleNotificationDetails(),
             );
           }
-          cancelById(taskId);
+          cancelById(tappedTaskId);
         } else {
           debugPrint('Notification tapped');
         }
 
-        // ✅ Navigate to AlarmScreen regardless
-        Navigator.of(context).push(
+        // ✅ Navigate to AlarmScreen WITHOUT context
+        navigatorKey.currentState?.push(
           MaterialPageRoute(
             builder: (_) => AlarmScreen(
               taskId: idFromPayload,
@@ -462,12 +465,12 @@ class FullScreenNotification {
   NotificationDetails _notificationDetails() {
     return const NotificationDetails(
       android: AndroidNotificationDetails(
-        'loud_alarm_channel',
+        'loud_alarm_channel', // keep your existing id if you want; change only if you need a new channel
         'Loud Alarms',
         channelDescription: 'Channel for loud fullscreen alarms',
         importance: Importance.max,
         priority: Priority.max,
-        playSound: false,
+        playSound: false, // you play your own tone
         fullScreenIntent: true,
         category: AndroidNotificationCategory.alarm,
         enableVibration: true,
@@ -504,21 +507,21 @@ class FullScreenNotification {
     );
   }
 
-  Future<void> showNotification(Task task, String message) async {
-    DateTime now = DateTime.now();
-    int currentSecond = now.second;
-    await Future.delayed(Duration(seconds: 60 - currentSecond));
+  Future<void> showNotification(Task task, String message, DateTime toFireAt) async {
+    final int currentSecond = DateTime.now().second;
+    if (DateTime.now().isBefore(toFireAt)) {
+      await Future.delayed(Duration(seconds: 60 - currentSecond));
+    }
     taskId = task.id;
-    int id = int.parse(task.id) % 2147483647;
+    final int id = int.parse(task.id) % 2147483647;
 
     await notificationPlugin.show(
       id,
       task.title,
       "$message${task.title}",
       _notificationDetails(),
-      payload: "${task.id}|$message", // 👈 combine id and message
+      payload: "${task.id}|$message",
     );
-
 
     ringtoneHandler();
     _startListening();
@@ -532,6 +535,7 @@ class FullScreenNotification {
       _listening = true;
     }
   }
+
   Future<void> ringtoneHandler() async {
     if (Hive.isBoxOpen('settings')) {
       await Hive.box<AppSettings>('settings').close();
@@ -546,12 +550,14 @@ class FullScreenNotification {
       await EffectService().playAsset('audio/loud.mp3');
     }
   }
-  Future<void> cancelById (taskId) async {
-    int id = int.parse(taskId) % 2147483647;
+
+  Future<void> cancelById(taskId) async {
+    final int id = int.parse(taskId) % 2147483647;
     await notificationPlugin.cancel(id);
     EffectService().stopEffect();
   }
-  Future<void> cancelNotification () async {
+
+  Future<void> cancelNotification() async {
     await notificationPlugin.cancelAll();
     EffectService().stopEffect();
   }

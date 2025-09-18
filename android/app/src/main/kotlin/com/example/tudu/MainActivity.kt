@@ -1,4 +1,4 @@
-package com.example.tudu // change to your package name
+package com.example.tudu 
 
 import android.app.AlarmManager
 import android.content.Context
