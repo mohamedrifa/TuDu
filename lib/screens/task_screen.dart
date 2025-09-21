@@ -4,18 +4,14 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tudu/models/settings.dart';
 import 'package:tudu/services/task_widget_helper.dart';
 import 'package:tudu/widgets/tip_banner.dart';
-import '../services/alarm_permission_helper.dart';
-import '../services/notification_service.dart';
 import '../widgets/task_card.dart';
 import '../models/task.dart';
 import '../database/hive_service.dart';
 import 'task_adding_screen.dart';
 import 'package:intl/intl.dart';
 import '../widgets/quickLinks.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
-import 'dart:io';
 
 // ignore: must_be_immutable
 class TaskScreen extends StatefulWidget {
@@ -87,11 +83,6 @@ class _TaskScreenState extends State<TaskScreen> {
 @override
 void initState() {
   super.initState();
-  Future.microtask(() async {
-    await tipCheck();
-    setState(() {}); // update UI after task loaded
-    _requestNotificationPermission();
-  });
 }
 void openBatterySettings() {
   final intent = AndroidIntent(
@@ -101,20 +92,6 @@ void openBatterySettings() {
   );
   intent.launch();
 }
-  Future<void> _requestNotificationPermission() async {
-    if (!Platform.isAndroid) return;
-    await Future.delayed(Duration(seconds: 2));
-    bool alarmGranted = await AlarmPermissionHelper.hasAlarmPermission();
-    if (!alarmGranted) {
-      await AlarmPermissionHelper.requestAlarmPermission();
-    }
-    if (await Permission.notification.isDenied) {
-      await Permission.notification.request();
-      if ((await Permission.notification.isGranted)){
-        NotificationService().scheduleAlarmEveryMinute();
-      }
-    }
-  }
   
   bool quickLinksEnabled = false;
   void quickLinkWidget() {

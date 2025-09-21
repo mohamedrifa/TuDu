@@ -196,9 +196,10 @@ class _AlarmScreenState extends State<AlarmScreen> {
 
   Future<void> handleGo() async {
     if (task != null) {
-      String date =
-          DateFormat('d EEE MMM yyyy').format(DateTime.now());
-      task.taskCompletionDates.add(date);
+      String date = DateFormat('d EEE MMM yyyy').format(DateTime.now());
+      if(!task.taskCompletionDates.contains(date)) {
+        task.taskCompletionDates.add(date);
+      }
       await box.put(widget.taskId, task);
       final tasks = box.values.toList();
       TaskWidgetHelper.updateTasksWidget(tasks);

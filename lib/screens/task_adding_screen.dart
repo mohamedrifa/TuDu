@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tudu/services/task_widget_helper.dart';
+import '../services/notification_service.dart';
 import '../widgets/confirm_delete_dialog.dart';
 import '../widgets/save_button.dart';
 import 'task_screen.dart';
@@ -54,6 +55,9 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   final taskNameController = TextEditingController();
   final locationController = TextEditingController();
   final subTaskController = TextEditingController();
+
+  final _chipColor = const Color(0xFF227D7B);
+  final _days = const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   void toast (String msg) {
     Fluttertoast.showToast(
@@ -299,6 +303,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     box.put(widget.taskId, task); 
     widgetUpdate();
     toast(widget.isEdit? "Task Edited" : "Task Added");
+    NotificationService().scheduleOneShotForTodayAndMidnightRollover();
     _navigateToHome();
   }
 
@@ -343,6 +348,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     box.delete(widget.taskId);
     widgetUpdate();
     toast("Task Deleted");
+    NotificationService().scheduleOneShotForTodayAndMidnightRollover();
     _navigateToHome();
   }
   
@@ -457,6 +463,13 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       });
     }
   }
+
+  double byWidth (double val) {
+    return MediaQuery.of(context).size.width * (val/412);
+  }
+  double byHeight (double val) {
+    return MediaQuery.of(context).size.height * (val/917);
+  }
   
   void GestDetect () {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
@@ -561,41 +574,35 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: "MTWTFSS".split("").asMap().entries.map((entry) {
-                              int index = entry.key;
-                              String day = entry.value;
-                              bool isSelected = _selectedDays[index];
+                            children: _days.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final day = entry.value;
+                              final isSelected = _selectedDays[index];
                               return Material(
                                 color: Colors.transparent,
                                 child: InkWell(
+                                  borderRadius: BorderRadius.circular(20),
                                   onTap: () {
-                                    setState(() { 
+                                    setState(() {
                                       _selectedDays[index] = !_selectedDays[index];
-                                      daySelection(index); 
+                                      daySelection(index);
                                     });
                                     updateShowDate();
                                   },
-                                  borderRadius: BorderRadius.circular(5),
                                   child: Container(
-                                    width: 35,
-                                    height: 50,
+                                    padding: EdgeInsets.symmetric(horizontal: byWidth(12), vertical: byHeight(8)),
                                     decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? const Color(0xFF227D7B)
-                                          : const Color.fromARGB(0, 43, 46, 60),
-                                      borderRadius: BorderRadius.circular(5),
+                                      color: isSelected ? _chipColor : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: _chipColor, width: byWidth(1)),
                                     ),
-                                    child: Center(
-                                      child: Text(
-                                        day,
-                                        style: TextStyle(
-                                          color: index == 6
-                                              ? const Color(0xFFD11E1E) // Sunday in red
-                                              : const Color(0xFFEBFAF9),
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w500,
-                                          fontFamily: 'Poppins',
-                                        ),
+                                    child: Text(
+                                      day,
+                                      style: TextStyle(
+                                        color: Color(0xFFEBFAF9),
+                                        fontSize: byWidth(14),
+                                        fontWeight: FontWeight.w500,
+                                        fontFamily: 'Poppins',
                                       ),
                                     ),
                                   ),
@@ -686,22 +693,15 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                               
                             ],
                           ),
+                          if(!widget.isEdit)
+                          const SizedBox(height: 87),
                           const SizedBox(height: 20),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: SaveButton(
-                              isEdit: widget.isEdit,
-                              onPressed: () {
-                                submitTask();
-                              },
-                            ),
-                          )
                         ],
                       ),
                     ),
                     if(widget.isEdit)  
                       Padding(
-                        padding: EdgeInsets.only(left: 16, right: 16, bottom: 45),
+                        padding: EdgeInsets.only(left: 16, right: 16, bottom: 120),
                         child: Material(
                           color: Color(0xFF313036),
                           child: InkWell(
@@ -756,6 +756,16 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                       ),
                   ],
                 ),
+              ),
+            ),
+            Positioned(
+              right: 16,
+              bottom: 49, // or top: 16, depending on where you want it
+              child: SaveButton(
+                isEdit: widget.isEdit,
+                onPressed: () {
+                  submitTask();
+                },
               ),
             ),
           ],

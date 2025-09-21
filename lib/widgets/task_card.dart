@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import '../screens/task_adding_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../services/notification_service.dart';
+
 class TaskCard extends StatelessWidget {
   final int index;
   final String id;
@@ -85,6 +87,7 @@ class TaskCard extends StatelessWidget {
       }
       box.put(id, task);
     }
+    NotificationService().scheduleOneShotForTodayAndMidnightRollover();
   }
 
   void handleMediumAlert(bool alert) {
@@ -99,14 +102,23 @@ class TaskCard extends StatelessWidget {
       }
       box.put(id, task);
     }
+    NotificationService().scheduleOneShotForTodayAndMidnightRollover();
   }
 
   bool isTimePassed(String fromTime) {
-    final now = DateTime.now();
+    final dateFormat = DateFormat("d EEE MMM yyyy");
+    final parsedDate = dateFormat.parse(date);
     final parts = fromTime.split(":");
     final hour = int.parse(parts[0]);
     final minute = int.parse(parts[1]);
-    final taskTime = DateTime(now.year, now.month, now.day, hour, minute);
+    final taskTime = DateTime(
+      parsedDate.year,
+      parsedDate.month,
+      parsedDate.day,
+      hour,
+      minute,
+    );
+    final now = DateTime.now();
     return now.isAfter(taskTime);
   }
 
@@ -121,9 +133,9 @@ class TaskCard extends StatelessWidget {
         box.put(id, task);
         final tasks = box.values.toList();
         TaskWidgetHelper.updateTasksWidget(tasks);
+        NotificationService().scheduleOneShotForTodayAndMidnightRollover();
       } else {
-        toast(
-            "This task is scheduled for a future time. You cannot complete it now.");
+        toast("This task is scheduled for a future time. You cannot complete it now.");
       }
     }
   }
