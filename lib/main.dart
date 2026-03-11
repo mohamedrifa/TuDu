@@ -86,7 +86,6 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-
 class FullScreenPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
