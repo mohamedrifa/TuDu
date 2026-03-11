@@ -2,11 +2,15 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:path_provider/path_provider.dart';
-import 'models/settings.dart';
-import 'notification_service/notification_service.dart';
-import 'notification_service/alarm_screen.dart';
-import 'data/app_database.dart';
+import 'database/hive_service.dart';
+import 'services/notification_service.dart'; 
+import 'screens/alarm_screen.dart';
+import './screens/onboarding_screen.dart';
+
+// global nav key
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,26 +23,69 @@ void main() async {
   await AppDatabase.instance.database;
   await AndroidAlarmManager.initialize();
   await MediumNotification().initNotification();
-
-  runApp(const MyApp());
+  runApp(MyApp());
+  // ignore: deprecated_member_use
+  HomeWidget.registerBackgroundCallback(backgroundCallback);
+}
+Future<void> backgroundCallback(Uri? uri) async {
+  if (uri != null && uri.path == 'toggleTask') {
+    // ignore: unused_local_variable
+    String taskId = uri.queryParameters['id'] ?? '';
+  }
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-  static final navKey = GlobalKey<NavigatorState>();
+class MyApp extends StatefulWidget {
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  // never null -> prevents MaterialApp assert
+  Widget _startPage = const SizedBox.shrink();
+
+  @override
+  void initState() {
+    super.initState();
+    _initNotifications();
+  }
+
+  Future<void> _initNotifications() async {
+    // init without context
+    await FullScreenNotification().initNotification();
+
+    // cold start?
+    final details =
+        await FullScreenNotification().notificationPlugin.getNotificationAppLaunchDetails();
+
+    if (details?.didNotificationLaunchApp == true) {
+      final payload = details!.notificationResponse?.payload;
+      if (payload != null && payload.isNotEmpty) {
+        final parts = payload.split('|');
+        final taskId = parts[0];
+        final message = parts.length > 1 ? parts[1] : "";
+
+        // 👉 set home directly to AlarmScreen, no push (prevents flicker)
+        setState(() {
+          _startPage = AlarmScreen(taskId: taskId, message: message);
+        });
+        return;
+      }
+    }
+    else {
+      setState(() {
+        _startPage = FullScreenPage();
+      });
+    }
+    
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fullscreen App',
-      navigatorKey: navKey,
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
-      initialRoute: '/',
-      routes: {
-        '/lockscreen': (context) =>
-            const AlarmScreen(title: 'testing', description: 'module'),
-        '/': (context) => const FullScreenPage(),
-      },
+      title: 'Tudu',
+      home: _startPage,
     );
   }
 }
@@ -61,8 +108,12 @@ class FullScreenPage extends StatelessWidget {
       ),
       child: Scaffold(
         extendBodyBehindAppBar: true,
-        backgroundColor: Colors.black,
-        body: _BodyWrapper(),
+        backgroundColor: Colors.black, // Use a solid color
+        body: MediaQuery.removeViewPadding(
+          context: context,
+          removeTop: true, // ✅ This removes the gap
+          child: OnboardingScreen(), // or whatever your content is
+        ),
       ),
     );
   }

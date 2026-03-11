@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tudu/services/task_widget_helper.dart';
+import '../services/notification_service.dart';
+import '../widgets/confirm_delete_dialog.dart';
+import '../widgets/save_button.dart';
 import 'task_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -59,7 +63,10 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   final locationController = TextEditingController();
   final subTaskController = TextEditingController();
 
-  void toast(String msg) {
+  final _chipColor = const Color(0xFF227D7B);
+  final _days = const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  void toast (String msg) {
     Fluttertoast.showToast(
       msg: msg,
       toastLength: Toast.LENGTH_SHORT,
@@ -91,7 +98,8 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   String selectedBefore = "5 Mins";
   String selectedAfter = "On Time";
   List taskCompletionDates = [];
-  // ============================
+  String scheduledDate = "";
+  // End
 
   bool _selectedDaysCheck() {
     for (int i = 0; i < _selectedDays.length; i++) {
@@ -169,12 +177,9 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         isAfterLoudAlert = task.afterLoudAlert;
         isAfterMediumAlert = task.afterMediumAlert;
 
-        selectedAfter = task.selectedAfter;
-        taskCompletionDates = task.taskCompletionDates;
-
-        if (mounted) setState(() {});
-        // ================================================
-      });
+      selectedAfter = task.alertAfter;
+      taskCompletionDates = task.taskCompletionDates;
+      scheduledDate = task.taskScheduleddate;
     }
   }
 
@@ -324,19 +329,19 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       beforeMediumAlert: isBeforeMediumAlert,
       afterLoudAlert: isAfterLoudAlert,
       afterMediumAlert: isAfterMediumAlert,
-      selectedBefore: selectedBefore,  // <-- NOTE: selectedBefore
-      selectedAfter: selectedAfter,    // <-- NOTE: selectedAfter
-      taskCompletionDates: taskCompletionDates.cast<String>(),
-      taskScheduleddate: DateFormat('d MM yyyy').format(DateTime.now()),
+      alertBefore: selectedBefore,
+      alertAfter: selectedAfter,
+      taskCompletionDates: taskCompletionDates,
+      taskScheduleddate: widget.isEdit ? scheduledDate : DateFormat('d MM yyyy').format(DateTime.now()),
     );
-
-    await _taskRepo.upsert(task);
-
-    toast(widget.isEdit ? "Task Edited" : "Task Added");
+    box.put(widget.taskId, task); 
+    toast(widget.isEdit? "Task Edited" : "Task Added");
+    NotificationService().scheduleOneShotForTodayAndMidnightRollover();
     _navigateToHome();
   }
 
   void _navigateToHome() {
+    TaskWidgetHelper.updateTasksWidget();
     setState(() {
       leftOffset = MediaQuery.of(context).size.width;
     });
@@ -361,6 +366,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   void deletetask() async {
     await _taskRepo.delete(widget.taskId);
     toast("Task Deleted");
+    NotificationService().scheduleOneShotForTodayAndMidnightRollover();
     _navigateToHome();
   }
 
@@ -478,7 +484,14 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
     }
   }
 
-  void GestDetect() {
+  double byWidth (double val) {
+    return MediaQuery.of(context).size.width * (val/412);
+  }
+  double byHeight (double val) {
+    return MediaQuery.of(context).size.height * (val/917);
+  }
+  
+  void GestDetect () {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
   }
 
@@ -583,13 +596,14 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: "MTWTFSS".split("").asMap().entries.map((entry) {
-                              int index = entry.key;
-                              String day = entry.value;
-                              bool isSelected = _selectedDays[index];
+                            children: _days.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final day = entry.value;
+                              final isSelected = _selectedDays[index];
                               return Material(
                                 color: Colors.transparent,
                                 child: InkWell(
+                                  borderRadius: BorderRadius.circular(20),
                                   onTap: () {
                                     setState(() {
                                       _selectedDays[index] = !_selectedDays[index];
@@ -597,27 +611,20 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                                     });
                                     updateShowDate();
                                   },
-                                  borderRadius: BorderRadius.circular(5),
                                   child: Container(
-                                    width: 35,
-                                    height: 50,
+                                    padding: EdgeInsets.symmetric(horizontal: byWidth(12), vertical: byHeight(8)),
                                     decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? const Color(0xFF227D7B)
-                                          : const Color.fromARGB(0, 43, 46, 60),
-                                      borderRadius: BorderRadius.circular(5),
+                                      color: isSelected ? _chipColor : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: _chipColor, width: byWidth(1)),
                                     ),
-                                    child: Center(
-                                      child: Text(
-                                        day,
-                                        style: TextStyle(
-                                          color: index == 6
-                                              ? const Color(0xFFD11E1E)
-                                              : const Color(0xFFEBFAF9),
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w500,
-                                          fontFamily: 'Poppins',
-                                        ),
+                                    child: Text(
+                                      day,
+                                      style: TextStyle(
+                                        color: Color(0xFFEBFAF9),
+                                        fontSize: byWidth(14),
+                                        fontWeight: FontWeight.w500,
+                                        fontFamily: 'Poppins',
                                       ),
                                     ),
                                   ),
@@ -639,39 +646,39 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                           const SizedBox(height: 24),
                           _buildLabel("Tags"),
                           const SizedBox(height: 24),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 11.5),
-                            child: Wrap(
-                              spacing: 11,
-                              runSpacing: 11,
-                              children: [
-                                _buildTag("Upskill"),
-                                _buildTag("Work"),
-                                _buildTag("Personal"),
-                                _buildTag("Health"),
-                                _buildTag("Exercise"),
-                                _buildTag("Social"),
-                                _buildTag("Spiritual"),
-                                _buildTag("Finance"),
-                                _buildTagAdder(),
-                              ],
-                            ),
+                          Wrap(
+                            spacing: 11,
+                            runSpacing: 11,
+                            children: [
+                              _buildTag("Upskill"),
+                              _buildTag("Work"),
+                              _buildTag("Personal"),
+                              _buildTag("Health"),
+                              _buildTag("Exercise"),
+                              _buildTag("Social"),
+                              _buildTag("Spiritual"),
+                              _buildTag("Finance"),
+                              _buildTagAdder(),
+                            ],
                           ),
                           const SizedBox(height: 24),
                           Row(
                             children: [
                               SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: Checkbox(
-                                  value: isImportant,
-                                  onChanged: (val) {
-                                    setState(() {
-                                      isImportant = val!;
-                                    });
-                                  },
-                                  activeColor: const Color(0xFF268D8C),
-                                  checkColor: Colors.black,
+                                width: 24,
+                                height: 24,
+                                child: Transform.scale(
+                                  scale: 1.4, // adjust until it fills parent
+                                  child: Checkbox(
+                                    value: isImportant,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        isImportant = val!;
+                                      });
+                                    },
+                                    activeColor: const Color(0xFF268D8C),
+                                    checkColor: Colors.black,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 19),
@@ -706,94 +713,79 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
                               ),
                             ],
                           ),
+                          if(!widget.isEdit)
+                          const SizedBox(height: 87),
                           const SizedBox(height: 20),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () {
-                                  submitTask();
-                                },
-                                borderRadius: BorderRadius.circular(25),
-                                child: Container(
-                                  height: 56,
-                                  width: 119,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF0D0C10),
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  child: Center(
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          widget.isEdit ? "Edit" : "ADD",
-                                          style: const TextStyle(
-                                            color: Color(0xFFEBFAF9),
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.w600,
-                                            fontFamily: 'Poppins',
-                                          ),
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Image(
-                                          image: widget.isEdit
-                                              ? AssetImage("assets/editIcon.png")
-                                              : AssetImage("assets/addTaskIcon.png"),
-                                          width: 30,
-                                          height: 30,
-                                        )
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
                         ],
                       ),
                     ),
-                    if (widget.isEdit)
-                      Material(
-                        child: InkWell(
-                          onTap: () => {deletetask()},
-                          child: Container(
-                            width: double.infinity,
-                            height: 64,
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF802020), Color(0xFF551515)],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                              ),
+                    if(widget.isEdit)  
+                      Padding(
+                        padding: EdgeInsets.only(left: 16, right: 16, bottom: 120),
+                        child: Material(
+                          color: Color(0xFF313036),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(32),
+                            onTap: () => 
+                              showConfirmDeleteDialog(
+                              context,
+                              onConfirm: () => deletetask(),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Image.asset(
-                                  "assets/dustBin.png",
-                                  width: 21,
-                                  height: 22.91,
+                            child: Container(
+                              width: double.infinity,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF313036), // background to match screenshot
+                                borderRadius: BorderRadius.circular(32),
+                                border: Border.all(
+                                  color: Color(0xFFADABB5), // subtle white border
+                                  width: 1,
                                 ),
-                                const SizedBox(width: 10),
-                                const Text(
-                                  "Delete",
-                                  style: TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 24,
-                                    color: Color(0xFFEBFAF9),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.white.withOpacity(0.4),
+                                    offset: const Offset(0, 4),
+                                    blurRadius: 4,
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Image.asset(
+                                    "assets/dustBin.png",
+                                    width: 24,
+                                    height: 24,
+                                    color: const Color(0xFFEBFAF9), // make icon white
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    "Delete Task",
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 22,
+                                      color: Color(0xFFEBFAF9),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      )
+                      ),
                   ],
                 ),
+              ),
+            ),
+            Positioned(
+              right: 16,
+              bottom: 49, // or top: 16, depending on where you want it
+              child: SaveButton(
+                isEdit: widget.isEdit,
+                onPressed: () {
+                  submitTask();
+                },
               ),
             ),
           ],
@@ -1097,7 +1089,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
         },
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             color: selectedTag == text ? const Color(0xFFFED289) : const Color.fromARGB(0, 43, 46, 60),
             borderRadius: BorderRadius.circular(10),
@@ -1120,45 +1112,43 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   Widget _buildTagAdder() {
     final bool showBackground = _tagFocusNode.hasFocus && selectedTag.isNotEmpty;
 
-    return Container(
-      height: 27,
-      padding: const EdgeInsets.only(left: 8, right: 8, top: 1.5, bottom: 1.5),
-      decoration: BoxDecoration(
-        color: showBackground ? const Color(0xFFFED189) : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFFED289), width: 1),
-      ),
-      child: IntrinsicWidth(
-        child: TextField(
-          focusNode: _tagFocusNode,
-          controller: tagController,
-          cursorHeight: 15,
-          cursorColor: showBackground ? const Color(0xFF1B1A1E) : const Color(0xFFFED289),
-          maxLines: 1,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 18,
-            fontWeight: FontWeight.w300,
-            color: Color(0xFF1B1A1E),
-          ),
-          decoration: const InputDecoration(
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(vertical: 4),
-            hintText: "+Add...",
-            hintStyle: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 18,
-              fontWeight: FontWeight.w300,
-              color: Color(0xFFFEE5BD),
-            ),
-            border: InputBorder.none,
-          ),
-          onChanged: (value) => setState(() => selectedTag = value),
-          onTap: () => setState(() => selectedTag = ""),
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
+    decoration: BoxDecoration(
+      color: showBackground ? const Color(0xFFFED189) : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xFFFED289), width: 1),
+    ),
+    child: IntrinsicWidth(
+      child: TextField(
+        focusNode: _tagFocusNode,
+        controller: tagController,
+        cursorHeight: 15,
+        cursorColor: showBackground ? const Color(0xFF1B1A1E) : const Color(0xFFFED289),
+        maxLines: 1,
+        style: const TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 16,
+          fontWeight: FontWeight.w300,
+          color: Color(0xFF1B1A1E),
         ),
+        decoration: const InputDecoration(
+          isDense: true,
+          hintText: "+Add...",
+          hintStyle: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 16,
+            fontWeight: FontWeight.w300,
+            color: Color(0xFFFEE5BD),
+          ),
+          border: InputBorder.none,
+        ),
+        onChanged: (value) => setState(() => selectedTag = value),
+        onTap: () => setState(() => selectedTag = ""),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDropdown(
       String label, List<String> items, String value, void Function(String?) onChanged) {

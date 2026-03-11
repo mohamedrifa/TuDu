@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:tudu/services/task_widget_helper.dart';
+import '../models/task.dart';
 import 'package:intl/intl.dart';
 import '../screens/task_adding_screen.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-// SQLite-backed model & repo
-import '../data/task_model.dart';
-import '../data/task_repository.dart';
+import '../services/notification_service.dart';
 
-class TaskCard extends StatefulWidget {
+class TaskCard extends StatelessWidget {
   final int index;
   final String id;
   final String date; // display date string used for completion tracking
@@ -17,53 +20,21 @@ class TaskCard extends StatefulWidget {
     required this.index,
     required this.id,
     required this.date,
-    this.onChanged,
   });
 
-  @override
-  State<TaskCard> createState() => _TaskCardState();
-}
-
-class _TaskCardState extends State<TaskCard> {
-  late final TaskRepository _repo;
-  Task? _task;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _repo = SqliteTaskRepository();
-    _loadTask();
+  void toast(String msg) {
+    Fluttertoast.showToast(
+      msg: msg,
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.CENTER,
+      backgroundColor: Colors.black,
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
   }
 
-  // IMPORTANT: reload if ListView reuses this element for a different task id
-  @override
-  void didUpdateWidget(covariant TaskCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.id != widget.id) {
-      _loading = true;
-      _task = null;
-      _loadTask();
-    }
-  }
-
-  Future<void> _loadTask() async {
-    final t = await _repo.getById(widget.id);
-    if (!mounted) return;
-    setState(() {
-      _task = t;
-      _loading = false;
-    });
-  }
-
-  Future<void> _notifyParent() async {
-    if (widget.onChanged != null) {
-      await widget.onChanged!();
-    }
-  }
-
-  void _navigateToAddTaskScreen(BuildContext context, String addTaskId) async {
-    await Navigator.push(
+  void _navigateToAddTaskScreen(BuildContext context, String addTaskId) {
+    Navigator.push(
       context,
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 600),
@@ -73,7 +44,8 @@ class _TaskCardState extends State<TaskCard> {
           final begin = const Offset(0.0, 1.0);
           final end = Offset.zero;
           final curve = Curves.easeInOut;
-          final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          final tween =
+              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
           final offsetAnimation = animation.drive(tween);
           return SlideTransition(position: offsetAnimation, child: child);
         },
@@ -84,187 +56,274 @@ class _TaskCardState extends State<TaskCard> {
   }
 
   String timing(String fromTime, String toTime) {
-    final parts1 = fromTime.split(":");
-    final fromHour = int.parse(parts1[0]);
-    final fromMinute = int.parse(parts1[1]);
-    final time1 = DateTime(0, 1, 1, fromHour, fromMinute);
-    var formattedTime1 = DateFormat('hh.mm a').format(time1).replaceAll("AM", "A.M").replaceAll("PM", "P.M");
+    List<String> parts1 = fromTime.split(":");
+    int fromHour = int.parse(parts1[0]);
+    int fromMinute = int.parse(parts1[1]);
+    DateTime time1 = DateTime(0, 1, 1, fromHour, fromMinute);
+    String formattedTime1 = DateFormat('hh.mm a').format(time1);
+    formattedTime1 =
+        formattedTime1.replaceAll("AM", "A.M").replaceAll("PM", "P.M");
 
-    final parts2 = toTime.split(":");
-    final toHour = int.parse(parts2[0]);
-    final toMinute = int.parse(parts2[1]);
-    final time2 = DateTime(0, 1, 1, toHour, toMinute);
-    var formattedTime2 = DateFormat('hh.mm a').format(time2).replaceAll("AM", "A.M").replaceAll("PM", "P.M");
+    List<String> parts2 = toTime.split(":");
+    int toHour = int.parse(parts2[0]);
+    int toMinute = int.parse(parts2[1]);
+    DateTime time2 = DateTime(0, 1, 1, toHour, toMinute);
+    String formattedTime2 = DateFormat('hh.mm a').format(time2);
+    formattedTime2 =
+        formattedTime2.replaceAll("AM", "A.M").replaceAll("PM", "P.M");
 
     return "$formattedTime1 To $formattedTime2";
   }
 
-  // Helpers to read either selectedBefore/selectedAfter or alertBefore/alertAfter
-  String _selBefore(Task t) {
-    try { return (t as dynamic).selectedBefore ?? (t as dynamic).alertBefore ?? ""; } catch (_) { return ""; }
-  }
-  String _selAfter(Task t) {
-    try { return (t as dynamic).selectedAfter ?? (t as dynamic).alertAfter ?? ""; } catch (_) { return ""; }
-  }
-
-  Future<void> handleLoudAlert(bool alert) async {
-    final t = _task;
-    if (t == null) return;
-
-    final updated = Task(
-      id: t.id,
-      title: t.title,
-      date: t.date,
-      weekDays: t.weekDays,
-      fromTime: t.fromTime,
-      toTime: t.toTime,
-      tags: t.tags,
-      important: t.important,
-      location: t.location,
-      subTask: t.subTask,
-      beforeLoudAlert: !alert,
-      beforeMediumAlert: !alert ? false : t.beforeMediumAlert,
-      afterLoudAlert: !alert,
-      afterMediumAlert: !alert ? false : t.afterMediumAlert,
-      selectedBefore: _selBefore(t),
-      selectedAfter: _selAfter(t),
-      taskCompletionDates: t.taskCompletionDates,
-      taskScheduleddate: t.taskScheduleddate,
-    );
-
-    await _repo.upsert(updated);
-    if (!mounted) return;
-    setState(() => _task = updated);
-    await _notifyParent();
-  }
-
-  Future<void> handleMediumAlert(bool alert) async {
-    final t = _task;
-    if (t == null) return;
-
-    final updated = Task(
-      id: t.id,
-      title: t.title,
-      date: t.date,
-      weekDays: t.weekDays,
-      fromTime: t.fromTime,
-      toTime: t.toTime,
-      tags: t.tags,
-      important: t.important,
-      location: t.location,
-      subTask: t.subTask,
-      beforeLoudAlert: !alert ? false : t.beforeLoudAlert,
-      beforeMediumAlert: !alert,
-      afterLoudAlert: !alert ? false : t.afterLoudAlert,
-      afterMediumAlert: !alert,
-      selectedBefore: _selBefore(t),
-      selectedAfter: _selAfter(t),
-      taskCompletionDates: t.taskCompletionDates,
-      taskScheduleddate: t.taskScheduleddate,
-    );
-
-    await _repo.upsert(updated);
-    if (!mounted) return;
-    setState(() => _task = updated);
-    await _notifyParent();
-  }
-
-  Future<void> handleCheckMark() async {
-    final t = _task;
-    if (t == null) return;
-
-    final dates = List<String>.from(t.taskCompletionDates);
-    if (!dates.contains(widget.date)) {
-      dates.add(widget.date);
+  void handleLoudAlert(bool alert) {
+    final box = Hive.box<Task>('tasks');
+    final task = box.get(id);
+    if (task != null) {
+      task.beforeLoudAlert = !alert;
+      task.afterLoudAlert = !alert;
+      if (!alert) {
+        task.beforeMediumAlert = alert;
+        task.afterMediumAlert = alert;
+      }
+      box.put(id, task);
     }
+    NotificationService().scheduleOneShotForTodayAndMidnightRollover();
+  }
 
-    final updated = Task(
-      id: t.id,
-      title: t.title,
-      date: t.date,
-      weekDays: t.weekDays,
-      fromTime: t.fromTime,
-      toTime: t.toTime,
-      tags: t.tags,
-      important: t.important,
-      location: t.location,
-      subTask: t.subTask,
-      beforeLoudAlert: t.beforeLoudAlert,
-      beforeMediumAlert: t.beforeMediumAlert,
-      afterLoudAlert: t.afterLoudAlert,
-      afterMediumAlert: t.afterMediumAlert,
-      selectedBefore: _selBefore(t),
-      selectedAfter: _selAfter(t),
-      taskCompletionDates: dates,
-      taskScheduleddate: t.taskScheduleddate,
+  void handleMediumAlert(bool alert) {
+    final box = Hive.box<Task>('tasks');
+    final task = box.get(id);
+    if (task != null) {
+      task.beforeMediumAlert = !alert;
+      task.afterMediumAlert = !alert;
+      if (!alert) {
+        task.beforeLoudAlert = alert;
+        task.afterLoudAlert = alert;
+      }
+      box.put(id, task);
+    }
+    NotificationService().scheduleOneShotForTodayAndMidnightRollover();
+  }
+
+  bool isTimePassed(String fromTime) {
+    final dateFormat = DateFormat("d EEE MMM yyyy");
+    final parsedDate = dateFormat.parse(date);
+    final parts = fromTime.split(":");
+    final hour = int.parse(parts[0]);
+    final minute = int.parse(parts[1]);
+    final taskTime = DateTime(
+      parsedDate.year,
+      parsedDate.month,
+      parsedDate.day,
+      hour,
+      minute,
     );
+    final now = DateTime.now();
+    return now.isAfter(taskTime);
+  }
 
-    await _repo.upsert(updated);
-    if (!mounted) return;
-    setState(() => _task = updated);
-    await _notifyParent();
+  void handleCheckMark() {
+    final box = Hive.box<Task>('tasks');
+    final task = box.get(id);
+    if (task != null) {
+      if (isTimePassed(task.fromTime)) {
+        if (!task.taskCompletionDates.contains(date)) {
+          task.taskCompletionDates.add(date);
+          box.put(id, task); 
+        }
+        TaskWidgetHelper.updateTasksWidget();
+        NotificationService().scheduleOneShotForTodayAndMidnightRollover();
+      } else {
+        toast("This task is scheduled for a future time. You cannot complete it now.");
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const SizedBox.shrink();
-    final task = _task;
-    if (task == null) return const SizedBox.shrink();
+    final box = Hive.box<Task>('tasks');
+    final task = box.get(id);
+    if (task == null) {
+      return const SizedBox.shrink();
+    }
+
+    final List<String> weekdayLabels = const [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun",
+    ];
+
+    String importantDateText () {
+      if(date == "Importants") {
+        if(task.date == "repeat") {
+          int length = task.weekDays.length;
+          int count = 0;
+          for(int i=0; i<length; i++) {
+            if(task.weekDays[i]) count ++;
+          }
+          if(count == 7) { return "Everyday"; } 
+          else { return "Every"; }
+        } else {
+          try {
+            DateFormat inputFormat = DateFormat("dd MM yyyy");
+            DateTime parsedDate = inputFormat.parse(task.date);
+            DateTime today = DateTime.now();
+            DateTime tomorrow = today.add(const Duration(days: 1));
+            DateTime normalizedToday = DateTime(today.year, today.month, today.day);
+            DateTime normalizedTomorrow = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+            DateTime normalizedTask = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+            if (normalizedTask == normalizedToday) {
+              return "Today";
+            } else if (normalizedTask == normalizedTomorrow) {
+              return "Tomorrow";
+            } else {
+              DateFormat outputFormat = DateFormat("dd-MM-yyyy");
+              return outputFormat.format(parsedDate);
+            }
+          } catch (e) {
+            return task.date;
+          }
+        }
+      }
+      return "";
+    }
+    bool showWeekTags () {
+      String text = importantDateText();
+      if(text == "Everyday") {return false;}
+      else {return true;}
+    }
 
     return Stack(
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: Material(
-            color: task.important ? const Color(0xFFFED289) : const Color(0xFF5AD3D1),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+            color: task.important
+                ? const Color(0xFFFED289)
+                : const Color(0xFF5AD3D1),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
             child: InkWell(
               onTap: () => _navigateToAddTaskScreen(context, task.id),
               borderRadius: BorderRadius.circular(5),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Row(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                            if(date == "Importants")
+                            Row(
+                              children: [
+                                Text(
+                                  importantDateText(),
+                                  style: TextStyle(
+                                    fontFamily: 'Quantico',
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF313036),
+                                  ),
+                                ),
+                                // Days
+                                const SizedBox(width: 4),
+                                if (date == "Importants" && task.date == "repeat" && showWeekTags())
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: List.generate(7, (i) {
+                                        final bool on = task.weekDays[i] == true;
+                                        return Container(
+                                          margin: const EdgeInsets.only( right: 4 ),
+                                          padding: const EdgeInsets.symmetric( horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(20),
+                                            color: on
+                                                ? const Color(0xFF1B1A1E)
+                                                : Colors.transparent,
+                                            border: Border.all(
+                                              color: const Color(0xFF1B1A1E),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            weekdayLabels[i],
+                                            style: TextStyle(
+                                              fontFamily: 'Poppins',
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: on
+                                                  ? const Color(0xFFEBFAF9)
+                                                  : const Color(0xFF1B1A1E),
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          
+                Row(
                   children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Center(
-                            child: Row(
-                              children: [
-                                Text(
-                                  task.title,
-                                  style: const TextStyle(
-                                    color: Color(0xFF0D0C10),
-                                    fontFamily: 'Poppins',
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                          // Title + Subtask
+                          Row(
+                            children: [
+                              Text(
+                                task.title,
+                                style: const TextStyle(
+                                  color: Color(0xFF0D0C10),
+                                  fontFamily: 'Poppins',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  task.subTask,
-                                  style: const TextStyle(
-                                    color: Color(0xFF0D0C10),
-                                    fontFamily: 'Poppins',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w400,
-                                  ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                task.subTask,
+                                style: const TextStyle(
+                                  color: Color(0xFF0D0C10),
+                                  fontFamily: 'Poppins',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w400,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            task.location,
-                            style: const TextStyle(
-                              color: Color(0xFF0D0C10),
-                              fontFamily: 'Poppins',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                            ),
+                          // Location
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              SvgPicture.asset(
+                                "assets/location.svg",
+                                width: 20,
+                                height: 20,
+                                color: Colors.black,
+                              ),
+                              Text(
+                                " At ${task.location}",
+                                style: const TextStyle(
+                                  color: Color(0xFF0D0C10),
+                                  fontFamily: 'Poppins',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 4),
+
+                          // Time
                           Text(
                             timing(task.fromTime, task.toTime),
                             style: const TextStyle(
@@ -275,18 +334,22 @@ class _TaskCardState extends State<TaskCard> {
                             ),
                           ),
                           const SizedBox(height: 4),
+
+                          // Tags + Important + Alerts
                           Align(
                             alignment: Alignment.centerLeft,
                             child: SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: Row(
                                 children: [
-                                  if (task.tags.isNotEmpty)
+                                  if (task.tags != "")
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 5),
                                       margin: const EdgeInsets.only(right: 16),
                                       decoration: const BoxDecoration(
-                                        borderRadius: BorderRadius.all(Radius.circular(15)),
+                                        borderRadius: BorderRadius.all(
+                                            Radius.circular(15)),
                                         color: Color(0xFF0C2C2C),
                                       ),
                                       child: Text(
@@ -301,10 +364,12 @@ class _TaskCardState extends State<TaskCard> {
                                     ),
                                   if (task.important)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 5),
                                       margin: const EdgeInsets.only(right: 16),
                                       decoration: const BoxDecoration(
-                                        borderRadius: BorderRadius.all(Radius.circular(15)),
+                                        borderRadius: BorderRadius.all(
+                                            Radius.circular(15)),
                                         color: Color(0xFF268D8C),
                                       ),
                                       child: const Text(
@@ -325,18 +390,24 @@ class _TaskCardState extends State<TaskCard> {
                                         Material(
                                           color: Colors.transparent,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(5),
+                                            borderRadius:
+                                                BorderRadius.circular(5),
                                           ),
                                           child: InkWell(
                                             onTap: () {
-                                              final isOn = task.beforeLoudAlert || task.afterLoudAlert;
-                                              handleLoudAlert(isOn);
+                                              handleLoudAlert(
+                                                  task.beforeLoudAlert ||
+                                                      task.afterLoudAlert);
                                             },
-                                            borderRadius: BorderRadius.circular(5),
+                                            borderRadius:
+                                                BorderRadius.circular(5),
                                             child: Image(
-                                              image: (task.beforeLoudAlert || task.afterLoudAlert)
-                                                  ? const AssetImage("assets/loudAlertOn1.png")
-                                                  : const AssetImage("assets/loudAlertOff1.png"),
+                                              image: (task.beforeLoudAlert ||
+                                                      task.afterLoudAlert)
+                                                  ? const AssetImage(
+                                                      "assets/loudAlertOn1.png")
+                                                  : const AssetImage(
+                                                      "assets/loudAlertOff1.png"),
                                               width: 35,
                                               height: 35,
                                             ),
@@ -346,18 +417,24 @@ class _TaskCardState extends State<TaskCard> {
                                         Material(
                                           color: Colors.transparent,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(5),
+                                            borderRadius:
+                                                BorderRadius.circular(5),
                                           ),
                                           child: InkWell(
                                             onTap: () {
-                                              final isOn = task.beforeMediumAlert || task.afterMediumAlert;
-                                              handleMediumAlert(isOn);
+                                              handleMediumAlert(
+                                                  task.beforeMediumAlert ||
+                                                      task.afterMediumAlert);
                                             },
-                                            borderRadius: BorderRadius.circular(5),
+                                            borderRadius:
+                                                BorderRadius.circular(5),
                                             child: Image(
-                                              image: (task.beforeMediumAlert || task.afterMediumAlert)
-                                                  ? const AssetImage("assets/mediumAlertOn1.png")
-                                                  : const AssetImage("assets/mediumAlertOff1.png"),
+                                              image: (task.beforeMediumAlert ||
+                                                      task.afterMediumAlert)
+                                                  ? const AssetImage(
+                                                      "assets/mediumAlertOn1.png")
+                                                  : const AssetImage(
+                                                      "assets/mediumAlertOff1.png"),
                                               width: 35,
                                               height: 35,
                                             ),
@@ -375,12 +452,13 @@ class _TaskCardState extends State<TaskCard> {
                     ),
                     Material(
                       color: Colors.transparent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(5)),
                       child: InkWell(
                         onTap: () => handleCheckMark(),
                         borderRadius: BorderRadius.circular(5),
                         child: Image.asset(
-                          task.taskCompletionDates.contains(widget.date)
+                          task.taskCompletionDates.contains(date)
                               ? "assets/taskDone.png"
                               : "assets/taskPending.png",
                           width: 48,
@@ -389,7 +467,8 @@ class _TaskCardState extends State<TaskCard> {
                       ),
                     ),
                   ],
-                ),
+                ),],
+                    )
               ),
             ),
           ),
@@ -399,7 +478,8 @@ class _TaskCardState extends State<TaskCard> {
             right: 16,
             top: 11,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 5.67),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 0, horizontal: 5.67),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 color: const Color(0xFF1B1A1E),
