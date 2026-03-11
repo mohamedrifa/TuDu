@@ -337,8 +337,7 @@ class _MidnightExecutor {
         }
         await Hive.openBox<Task>('tasks');
       }
-      final tasks = Hive.box<Task>('tasks').values.toList();
-      TaskWidgetHelper.updateTasksWidget(tasks);
+      TaskWidgetHelper.updateTasksWidget();
     } catch (e, st) {
       debugPrint("❌ midnightRolloverCallback error: $e\n$st");
     }
@@ -377,8 +376,7 @@ class MediumNotification {
 
         final box = Hive.box<Task>('tasks');
         final task = box.get(idFromPayload);
-        final tasks = box.values.toList();
-        TaskWidgetHelper.updateTasksWidget(tasks);
+        TaskWidgetHelper.updateTasksWidget();
 
         if (response.actionId == 'action_1') {
           print('✅ Later button pressed');
@@ -512,8 +510,7 @@ class FullScreenNotification {
         }
         final box = Hive.box<Task>('tasks');
         final task = box.get(tappedTaskId);
-        final tasks = box.values.toList();
-        TaskWidgetHelper.updateTasksWidget(tasks);
+        TaskWidgetHelper.updateTasksWidget();
         if (response.actionId == 'action_1') {
           debugPrint('Later pressed');
           cancelNotification();

@@ -129,10 +129,9 @@ class TaskCard extends StatelessWidget {
       if (isTimePassed(task.fromTime)) {
         if (!task.taskCompletionDates.contains(date)) {
           task.taskCompletionDates.add(date);
+          box.put(id, task); 
         }
-        box.put(id, task);
-        final tasks = box.values.toList();
-        TaskWidgetHelper.updateTasksWidget(tasks);
+        TaskWidgetHelper.updateTasksWidget();
         NotificationService().scheduleOneShotForTodayAndMidnightRollover();
       } else {
         toast("This task is scheduled for a future time. You cannot complete it now.");

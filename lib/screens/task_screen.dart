@@ -76,7 +76,7 @@ class _TaskScreenState extends State<TaskScreen> {
       await Future.delayed(Duration(seconds: 5));
       setState(() => showTip = false);
     }
-    TaskWidgetHelper.updateTasksWidget(tasks);
+    TaskWidgetHelper.updateTasksWidget();
   } 
 
   

@@ -201,8 +201,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
         task.taskCompletionDates.add(date);
       }
       await box.put(widget.taskId, task);
-      final tasks = box.values.toList();
-      TaskWidgetHelper.updateTasksWidget(tasks);
+      TaskWidgetHelper.updateTasksWidget();
       await notificationPlugin.show(
         9999,
         'Task Started',

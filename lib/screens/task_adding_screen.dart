@@ -91,6 +91,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
   String selectedBefore = "5 Mins";
   String selectedAfter = "On Time";
   List taskCompletionDates = [];
+  String scheduledDate = "";
   // End
 
   bool _selectedDaysCheck () {
@@ -161,6 +162,7 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
 
       selectedAfter = task.alertAfter;
       taskCompletionDates = task.taskCompletionDates;
+      scheduledDate = task.taskScheduleddate;
     }
   }
 
@@ -298,16 +300,16 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       alertBefore: selectedBefore,
       alertAfter: selectedAfter,
       taskCompletionDates: taskCompletionDates,
-      taskScheduleddate: DateFormat('d MM yyyy').format(DateTime.now()),
+      taskScheduleddate: widget.isEdit ? scheduledDate : DateFormat('d MM yyyy').format(DateTime.now()),
     );
     box.put(widget.taskId, task); 
-    widgetUpdate();
     toast(widget.isEdit? "Task Edited" : "Task Added");
     NotificationService().scheduleOneShotForTodayAndMidnightRollover();
     _navigateToHome();
   }
 
   void _navigateToHome() {
+    TaskWidgetHelper.updateTasksWidget();
     setState(() {
       leftOffset = MediaQuery.of(context).size.width; // Adjust this value as needed for your animation
     });
@@ -330,23 +332,10 @@ class _TaskAddingScreenState extends State<TaskAddingScreen> {
       ),
     );
   }
-  final box = Hive.box<Task>('tasks');
-  Future<void> widgetUpdate () async {
-    if (!Hive.isBoxOpen('tasks')) {
-      await Hive.initFlutter();
-      if (!Hive.isAdapterRegistered(0)) {
-        Hive.registerAdapter(TaskAdapter()); // 👈 use your Task typeId
-      }
-      await Hive.openBox<Task>('tasks');
-    }
-    final tasks = box.values.toList();
-    TaskWidgetHelper.updateTasksWidget(tasks);
-  } 
 
   void deletetask() {
     final box = Hive.box<Task>('tasks');
     box.delete(widget.taskId);
-    widgetUpdate();
     toast("Task Deleted");
     NotificationService().scheduleOneShotForTodayAndMidnightRollover();
     _navigateToHome();
