@@ -12,8 +12,7 @@ import '../services/notification_service.dart';
 class TaskCard extends StatelessWidget {
   final int index;
   final String id;
-  final String date; // display date string used for completion tracking
-  final Future<void> Function()? onChanged; // ← notify parent to refresh
+  final String date;
 
   const TaskCard({
     super.key,
@@ -47,12 +46,13 @@ class TaskCard extends StatelessWidget {
           final tween =
               Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
           final offsetAnimation = animation.drive(tween);
-          return SlideTransition(position: offsetAnimation, child: child);
+          return SlideTransition(
+            position: offsetAnimation,
+            child: child,
+          );
         },
       ),
     );
-    await _loadTask();
-    await _notifyParent();
   }
 
   String timing(String fromTime, String toTime) {
@@ -208,7 +208,9 @@ class TaskCard extends StatelessWidget {
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
             child: InkWell(
-              onTap: () => _navigateToAddTaskScreen(context, task.id),
+              onTap: () {
+                _navigateToAddTaskScreen(context, task.id);
+              },
               borderRadius: BorderRadius.circular(5),
               child: Padding(
                 padding:
@@ -455,7 +457,9 @@ class TaskCard extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(5)),
                       child: InkWell(
-                        onTap: () => handleCheckMark(),
+                        onTap: () {
+                          handleCheckMark();
+                        },
                         borderRadius: BorderRadius.circular(5),
                         child: Image.asset(
                           task.taskCompletionDates.contains(date)

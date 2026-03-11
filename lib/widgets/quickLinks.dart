@@ -3,18 +3,16 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:hive/hive.dart'; // ✅ keep Hive for AppSettings only
+import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:table_calendar/table_calendar.dart';
-import '../models/settings.dart'; // ✅ AppSettings remains in Hive
+import '../database/hive_service.dart';
+import '../models/settings.dart';
+import '../models/task.dart';
 // ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as p;
 import 'package:file_selector/file_selector.dart';
-
-// ✅ SQLite-backed Task & Repository (use these instead of Hive Task/HiveService)
-import '../data/task_model.dart';
-import '../data/task_repository.dart';
 
 class QuickLinks extends StatefulWidget {
   final bool quickLinksEnabled;
@@ -28,6 +26,7 @@ class QuickLinks extends StatefulWidget {
     required this.onToggle,
     required this.showDate,
     required this.onDateChanged
+
   }) : super(key: key);
 
   @override
@@ -43,23 +42,16 @@ class _QuickLinksState extends State<QuickLinks> {
   final AudioPlayer player = AudioPlayer();
   Color containerColor = Colors.transparent;
   double rightOffset = -312; // Start off-screen
-
-  // ===== AppSettings (Hive) state =====
   String mediumAlertLocation = "";
   String loudAlertLocation = "";
   String mediumAlertName = " Efefjwfgguggkfbgfbggf";
   String loudAlertName = " Efefjwfgguggkfbgfbggf";
 
-  // ===== Tasks (SQLite) =====
-  late final TaskRepository _repo;
-  List<Task> _allTasks = [];
-  bool _loadingTasks = true;
-
   void toast (String msg) {
     Fluttertoast.showToast(
       msg: msg,
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.CENTER,
+      toastLength: Toast.LENGTH_SHORT, // or Toast.LENGTH_LONG
+      gravity: ToastGravity.CENTER, // or TOP, CENTER
       backgroundColor: Colors.black,
       textColor: Colors.white,
       fontSize: 16.0,
@@ -71,8 +63,6 @@ class _QuickLinksState extends State<QuickLinks> {
     super.initState();
     isEnabled = widget.quickLinksEnabled;
     selectedDate = widget.showDate;
-
-    // panel slide-in
     Future.delayed(const Duration(milliseconds: 50), () {
       if (!mounted) return;
       setState(() {
@@ -80,59 +70,42 @@ class _QuickLinksState extends State<QuickLinks> {
         rightOffset = 0;
       });
     });
-
-    // set calendar selection from incoming showDate
-    if (widget.showDate != "Importants") {
-      final format = DateFormat("d EEE MMM yyyy");
-      final dateTime = format.parse(widget.showDate);
+    if(widget.showDate != "Importants") {
+      DateFormat format = DateFormat("d EEE MMM yyyy");
+      DateTime dateTime = format.parse(widget.showDate);
       _selectedDay = dateTime;
+    } 
+    var settingsBox = Hive.box<AppSettings>('settings');
+    AppSettings? currentSettings = settingsBox.get('userSettings');
+    if(currentSettings != null && currentSettings.mediumAlertTone != '') {
+      String fileName = p.basename(currentSettings.mediumAlertTone);
+      mediumAlertName = fileName;
     }
-
-    // load AppSettings (Hive) tone names
-    final settingsBox = Hive.box<AppSettings>('settings');
-    final currentSettings = settingsBox.get('userSettings');
-    if (currentSettings != null && currentSettings.mediumAlertTone.isNotEmpty) {
-      mediumAlertName = " ${p.basename(currentSettings.mediumAlertTone)}";
+    if(currentSettings != null && currentSettings.loudAlertTone != '') {
+      String fileName = p.basename(currentSettings.loudAlertTone);
+      loudAlertName = fileName;
     }
-    if (currentSettings != null && currentSettings.loudAlertTone.isNotEmpty) {
-      loudAlertName = " ${p.basename(currentSettings.loudAlertTone)}";
-    }
-
-    // load tasks from SQLite
-    _repo = SqliteTaskRepository();
-    _loadTasks();
   }
-
-  Future<void> _loadTasks() async {
-    setState(() => _loadingTasks = true);
-    final tasks = await _repo.getAll();
-    if (!mounted) return;
-    setState(() {
-      _allTasks = tasks;
-      _loadingTasks = false;
-    });
-  }
-
   bool isAudioFile(String fileName) {
     final audioExtensions = [
       '.mp3', '.aac', '.wav', '.flac', '.ogg', '.opus', '.m4a', '.amr', '.3gp', '.caf'
     ];
-    final lowerFileName = fileName.toLowerCase();
+    String lowerFileName = fileName.toLowerCase();
     return audioExtensions.any((ext) => lowerFileName.endsWith(ext));
   }
-
   Future<void> pickMediumAlert() async {
     await player.stop();
     final XFile? file = await openFile();
     if (file != null) {
       if (!isAudioFile(file.name)) {
         toast("Supported Audio formats:\n"
-            ".mp3, .aac, .wav, .flac, .ogg, .opus, .m4a, .amr, .3gp, .caf");
-        return;
+              ".mp3, .aac, .wav, .flac, .ogg, .opus, .m4a, .amr, .3gp, .caf");
+              return;
       }
       final appDocDir = await getApplicationDocumentsDirectory();
       final mediumAlertDir = Directory('${appDocDir.path}/Medium Alert');
       mediumAlertName = " ${file.name}";
+      // ✅ Create the directory if it doesn't exist
       if (!await mediumAlertDir.exists()) {
         await mediumAlertDir.create(recursive: true);
       }
@@ -140,6 +113,7 @@ class _QuickLinksState extends State<QuickLinks> {
       await File(file.path).copy(newFile.path);
       setState(() {
         mediumAlertLocation = newFile.path;
+        print('File saved to: $mediumAlertLocation');
       });
       await player.play(DeviceFileSource(mediumAlertLocation));
     }
@@ -151,8 +125,8 @@ class _QuickLinksState extends State<QuickLinks> {
       toast("Please Choose a File");
       return;
     }
-    final settingsBox = Hive.box<AppSettings>('settings');
-    final currentSettings = settingsBox.get('userSettings');
+    var settingsBox = Hive.box<AppSettings>('settings');
+    AppSettings? currentSettings = settingsBox.get('userSettings');
     final updatedSettings = AppSettings(
       mediumAlertTone: mediumAlertLocation,
       loudAlertTone: currentSettings?.loudAlertTone ?? '',
@@ -168,12 +142,13 @@ class _QuickLinksState extends State<QuickLinks> {
     if (file != null) {
       if (!isAudioFile(file.name)) {
         toast("Supported Audio formats:\n"
-            ".mp3, .aac, .wav, .flac, .ogg, .opus, .m4a, .amr, .3gp, .caf");
-        return;
+              ".mp3, .aac, .wav, .flac, .ogg, .opus, .m4a, .amr, .3gp, .caf");
+              return;
       }
       final appDocDir = await getApplicationDocumentsDirectory();
       final loudAlertDir = Directory('${appDocDir.path}/Loud Alert');
       loudAlertName = " ${file.name}";
+      // ✅ Ensure the "Loud Alert" directory exists
       if (!await loudAlertDir.exists()) {
         await loudAlertDir.create(recursive: true);
       }
@@ -181,6 +156,7 @@ class _QuickLinksState extends State<QuickLinks> {
       await File(file.path).copy(newFile.path);
       setState(() {
         loudAlertLocation = newFile.path;
+        print('File saved to: $loudAlertLocation');
       });
       await player.play(DeviceFileSource(loudAlertLocation));
     }
@@ -188,12 +164,12 @@ class _QuickLinksState extends State<QuickLinks> {
 
   Future<void> setLoudAlert () async {
     player.stop();
-    if (loudAlertName == " Efefjwfgguggkfbgfbggf") {
+    if(loudAlertName == " Efefjwfgguggkfbgfbggf") {
       toast("Please Choose a File");
       return;
     }
-    final settingsBox = Hive.box<AppSettings>('settings');
-    final currentSettings = settingsBox.get('userSettings');
+    var settingsBox = Hive.box<AppSettings>('settings');
+    AppSettings? currentSettings = settingsBox.get('userSettings');
     final updatedSettings = AppSettings(
       mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
       loudAlertTone: loudAlertLocation,
@@ -216,8 +192,8 @@ class _QuickLinksState extends State<QuickLinks> {
   void setShowDate(String date) {
     if (!mounted) return;
     widget.onDateChanged(date);
-
-    if (!isExpanded) {
+    
+    if(!isExpanded) {
       setState(() {
         containerColor = Colors.transparent;
         rightOffset = -312; // Slide out
@@ -227,26 +203,26 @@ class _QuickLinksState extends State<QuickLinks> {
         _toggleQuickLinks();
       });
     }
+    
   }
-
+  
   bool allDaysFalse(List weekDays) {
     for (var day in weekDays) {
       if (day) return false;
     }
     return true;
   }
-
   bool filteredList(String date, List weekDays, bool isImportant) {
     if (widget.showDate == "Importants") {
       return isImportant;
     } else if (allDaysFalse(weekDays)) {
-      final inputFormat = DateFormat("d MM yyyy");
-      final parsedDate = inputFormat.parse(date);
-      final formattedDate = DateFormat('d EEE MMM yyyy').format(parsedDate);
+      DateFormat inputFormat = DateFormat("d MM yyyy");
+      DateTime parsedDate = inputFormat.parse(date);
+      String formattedDate = DateFormat('d EEE MMM yyyy').format(parsedDate);
       return widget.showDate == formattedDate;
     } else {
-      final parsedDate = DateFormat("d EEE MMM yyyy").parse(widget.showDate);
-      final formattedDay = DateFormat('EEE').format(parsedDate);
+      DateTime parsedDate = DateFormat("d EEE MMM yyyy").parse(widget.showDate);
+      String formattedDay = DateFormat('EEE').format(parsedDate);
       switch (formattedDay) {
         case "Mon":
           return weekDays[0];
@@ -279,6 +255,7 @@ class _QuickLinksState extends State<QuickLinks> {
               containerColor = Colors.transparent;
               rightOffset = -312; // Slide out
             });
+            // Wait for animation to finish
             Future.delayed(const Duration(milliseconds: 300), () {
               if (!mounted) return;
               _toggleQuickLinks();
@@ -291,7 +268,7 @@ class _QuickLinksState extends State<QuickLinks> {
             color: containerColor,
           ),
         ),
-
+        
         AnimatedPositioned(
           key: const ValueKey('quickLinksPanel'),
           duration: const Duration(milliseconds: 300),
@@ -301,29 +278,29 @@ class _QuickLinksState extends State<QuickLinks> {
           child: Container(
             height: MediaQuery.of(context).size.height,
             width: 312,
-            decoration: const BoxDecoration(
-              color: Color(0xFF313036),
+            decoration: BoxDecoration(
+              color: const Color(0xFF313036),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(15),
                 bottomLeft: Radius.circular(15),
               ),
-            ),
+            ), 
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 82),
+              padding: EdgeInsets.symmetric(horizontal: 25, vertical: 82),
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       "Quick Links",
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontWeight: FontWeight.w600,
                         fontSize: 20,
-                        color: Color(0xFFFED289),
+                        color: const Color(0xFFFED289),
                         decoration: TextDecoration.underline,
-                        decorationColor: Color(0xFFFED289),
-                        decorationStyle: TextDecorationStyle.solid,
+                        decorationColor: const Color(0xFFFED289),
+                        decorationStyle: TextDecorationStyle.solid, 
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -332,26 +309,28 @@ class _QuickLinksState extends State<QuickLinks> {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(5),
-                        onTap: () => setShowDate("Importants"),
-                        child: const Text(
+                        onTap: () => {
+                          setShowDate("Importants")
+                        },
+                        child: Text(
                           "Important",
                           style: TextStyle(
                             fontFamily: 'Poppins',
                             fontWeight: FontWeight.w600,
                             fontSize: 20,
-                            color: Color(0xFFFED289),
+                            color: const Color(0xFFFED289),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const Text(
+                    Text(
                       "Task On Other Days",
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontWeight: FontWeight.w600,
                         fontSize: 20,
-                        color: Color(0xFFFED289),
+                        color: const Color(0xFFFED289),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -365,17 +344,17 @@ class _QuickLinksState extends State<QuickLinks> {
                         setState(() {
                           _selectedDay = selectedDay;
                           _focusedDay = focusedDay;
-                          final formatted = DateFormat('d MM yyyy').format(_selectedDay ?? selectedDay);
+                          String formatted = DateFormat('d MM yyyy').format(_selectedDay ?? selectedDay);
                           setShowDate(formatted);
                         });
                       },
-                      calendarStyle: const CalendarStyle(
+                      calendarStyle: CalendarStyle(
                         selectedDecoration: BoxDecoration(
                           color: Color(0xFFFED289),
-                          shape: BoxShape.circle,
+                          shape: BoxShape.circle, 
                         ),
                         selectedTextStyle: TextStyle(
-                          color: Colors.black,
+                          color: Colors.black, // Sunday date color
                           fontWeight: FontWeight.w300,
                           fontSize: 16,
                           fontFamily: 'Quantico',
@@ -385,66 +364,113 @@ class _QuickLinksState extends State<QuickLinks> {
                           shape: BoxShape.circle,
                         ),
                         todayTextStyle: TextStyle(
-                          color: Colors.white,
+                          color: Colors.white, // Sunday date color
                           fontWeight: FontWeight.w300,
                           fontSize: 16,
                           fontFamily: 'Quantico',
                         ),
+                        
                       ),
                       headerStyle: HeaderStyle(
                         formatButtonVisible: false,
                         titleCentered: true,
                         titleTextFormatter: (date, locale) =>
                             '${DateFormat.MMM(locale).format(date).toUpperCase()} ${date.year}',
-                        titleTextStyle: const TextStyle(
+                        titleTextStyle: TextStyle(
                           color: Color(0xFFEBFAF9),
-                          fontFamily: 'Quantico',
+                          fontFamily: 'Quantico', // Your chosen font
                           fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                          fontSize: 20, // Customize as needed
                           letterSpacing: 1.5,
                         ),
-                        leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
-                        rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
+                        leftChevronIcon: Icon(Icons.chevron_left, color: Colors.white),
+                        rightChevronIcon: Icon(Icons.chevron_right, color: Colors.white),
                       ),
                       calendarBuilders: CalendarBuilders(
                         dowBuilder: (context, day) {
                           final text = DateFormat.E().format(day);
                           if (day.weekday == DateTime.sunday) {
                             return Center(
-                              child: Text(text, style: const TextStyle(color: Color.fromARGB(255, 168, 55, 55), fontWeight: FontWeight.bold)),
+                              child: Text(
+                                text,
+                                style: TextStyle(
+                                  color: Color.fromARGB(255, 168, 55, 55), // Your custom Sunday color
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             );
                           } else if (day.weekday == DateTime.saturday) {
-                            return const Center(
-                              child: Text('Sat', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+                            return Center(
+                              child: Text(
+                                text,
+                                style: TextStyle(
+                                  color: Colors.white54, // Your custom Sunday color
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             );
                           } else {
                             return Center(
                               child: Text(
                                 text,
-                                style: const TextStyle(color: Color(0xFFEBFAF9), fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  color: Color(0xFFEBFAF9), // Your custom Sunday color
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             );
                           }
                         },
                         defaultBuilder: (context, day, focusedDay) {
-                          final color = day.weekday == DateTime.sunday
-                              ? const Color.fromARGB(255, 171, 86, 86)
-                              : (day.weekday == DateTime.saturday ? Colors.white70 : const Color(0xFFEBFAF9));
-                          return Center(
-                            child: Container(
-                              width: 23,
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                '${day.day}',
-                                style: TextStyle(
-                                  color: color,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                  fontFamily: 'Quantico',
+                          if (day.weekday == DateTime.sunday) {
+                            return Center(
+                              child: Container(
+                                width: 23,
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  '${day.day}',
+                                  style: TextStyle(
+                                    color: Color.fromARGB(255, 171, 86, 86), // Sunday date color
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                    fontFamily: 'Quantico',
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
+                            );
+                          } else if(day.weekday == DateTime.saturday) {
+                            return Center(
+                              child: Container(
+                                width: 23,
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  '${day.day}',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                    fontFamily: 'Quantico',
+                                  ),
+                                ),
+                              ),
+                            );
+                          } else {
+                            return Center(
+                              child: Container(
+                                width: 23,
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  '${day.day}',
+                                  style: TextStyle(
+                                    color: Color(0xFFEBFAF9),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                    fontFamily: 'Quantico',
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
                         },
                       ),
                     ),
@@ -453,11 +479,11 @@ class _QuickLinksState extends State<QuickLinks> {
                       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                       child: ExpansionTile(
                         tilePadding: EdgeInsets.zero,
-                        collapsedIconColor: const Color(0xFF268D8C),
-                        iconColor: const Color(0xFF268D8C),
+                        collapsedIconColor: Color(0xFF268D8C),
+                        iconColor: Color(0xFF268D8C),
                         backgroundColor: Colors.transparent,
                         collapsedBackgroundColor: Colors.transparent,
-                        title: const Text(
+                        title: Text(
                           "Total Hours Of Tasks",
                           style: TextStyle(
                             fontFamily: 'Poppins',
@@ -471,47 +497,45 @@ class _QuickLinksState extends State<QuickLinks> {
                           setState(() {
                             isExpanded = expanded;
                           });
-                          if (expanded) {
-                            // refresh tasks when opening the section
-                            _loadTasks();
-                          }
                         },
                         children: [
-                          _loadingTasks
-                              ? const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 12.0),
-                                  child: Center(child: CircularProgressIndicator()),
-                                )
-                              : buildHourTasks(), // uses SQLite tasks
+                          buildHourTasks()
                         ],
                       ),
                     ),
-                    const SizedBox(height: 71.92),
-                    Container(width: double.infinity, height: 1, color: const Color(0xFFFFFFFF)),
-                    const SizedBox(height: 9.08),
-                    const Text(
+                    const SizedBox(height: 71.92,),
+                    Container(
+                      width: double.infinity,
+                      height: 1,
+                      color: Color(0xFFFFFFFF),
+                    ),
+                    const SizedBox(height: 9.08,),
+                    Text(
                       "Notification Tone",
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontWeight: FontWeight.w600,
                         fontSize: 20,
-                        color: Color(0xFFFED289),
+                        color: const Color(0xFFFED289),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    // ===== Medium Alert (Hive) =====
+                    const SizedBox(height:24),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.only(left: 8.24),
+                      padding: EdgeInsets.only(left: 8.24),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Image(image: AssetImage('assets/mediumAlertOn.png'), width: 35, height: 35),
-                              const SizedBox(width: 12),
-                              const Text(
+                              Image(
+                                image: AssetImage('assets/mediumAlertOn.png'),
+                                width: 35,
+                                height: 35,
+                              ),
+                              const SizedBox(width:12),
+                              Text(
                                 "Medium Alert",
                                 style: TextStyle(
                                   fontFamily: 'Poppins',
@@ -520,22 +544,28 @@ class _QuickLinksState extends State<QuickLinks> {
                                   fontSize: 20,
                                 ),
                               ),
-                              const Expanded(child: SizedBox(height: 40)),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 40,
+                                ),
+                              ),
                               Material(
                                 borderRadius: BorderRadius.circular(10),
-                                color: const Color(0xFF268D8C),
+                                color: Color(0xFF268D8C),
                                 child: InkWell(
-                                  onTap: setMediumAlert,
+                                  onTap: () => {
+                                    setMediumAlert()
+                                  },
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                                    child: const Text(
+                                    padding: EdgeInsets.symmetric(vertical: 5,horizontal: 10),
+                                    child: Text(
                                       "Set",
                                       style: TextStyle(
                                         fontFamily: 'Poppins',
                                         fontWeight: FontWeight.w400,
                                         color: Color(0xFF0D0C10),
-                                        fontSize: 16,
+                                        fontSize: 16
                                       ),
                                     ),
                                   ),
@@ -547,16 +577,22 @@ class _QuickLinksState extends State<QuickLinks> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Image(image: AssetImage("assets/tone.png"), width: 24, height: 24),
+                              Image(
+                                image: AssetImage("assets/tone.png"),
+                                width: 24,
+                                height: 24,
+                              ),
                               const SizedBox(width: 3),
                               Material(
                                 color: Colors.transparent,
                                 child: InkWell(
-                                  onTap: pickMediumAlert,
+                                  onTap:() => {
+                                    pickMediumAlert()
+                                  },
                                   child: Container(
                                     width: 183.97,
                                     height: 30,
-                                    decoration: const BoxDecoration(
+                                    decoration: BoxDecoration(
                                       color: Colors.transparent,
                                       border: Border(
                                         left: BorderSide(color: Colors.white, width: 1.0),
@@ -568,7 +604,7 @@ class _QuickLinksState extends State<QuickLinks> {
                                       child: Text(
                                         mediumAlertName,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontFamily: "Poppins",
                                           fontWeight: FontWeight.w300,
                                           fontSize: 16,
@@ -576,19 +612,23 @@ class _QuickLinksState extends State<QuickLinks> {
                                         ),
                                       ),
                                     ),
-                                  ),
+                                  )
+
                                 ),
                               )
                             ],
                           ),
                           const SizedBox(height: 23),
-                          // ===== Loud Alert (Hive) =====
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Image(image: AssetImage('assets/loudAlertOn.png'), width: 35, height: 35),
-                              const SizedBox(width: 12),
-                              const Text(
+                              Image(
+                                image: AssetImage('assets/loudAlertOn.png'),
+                                width: 35,
+                                height: 35,
+                              ),
+                              const SizedBox(width:12),
+                              Text(
                                 "Loud Alert",
                                 style: TextStyle(
                                   fontFamily: 'Poppins',
@@ -597,22 +637,28 @@ class _QuickLinksState extends State<QuickLinks> {
                                   fontSize: 20,
                                 ),
                               ),
-                              const Expanded(child: SizedBox(height: 40)),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 40,
+                                ),
+                              ),
                               Material(
                                 borderRadius: BorderRadius.circular(10),
-                                color: const Color(0xFF268D8C),
+                                color: Color(0xFF268D8C),
                                 child: InkWell(
-                                  onTap: setLoudAlert,
+                                  onTap: () => {
+                                    setLoudAlert()
+                                  },
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                                    child: const Text(
+                                    padding: EdgeInsets.symmetric(vertical: 5,horizontal: 10),
+                                    child: Text(
                                       "Set",
                                       style: TextStyle(
                                         fontFamily: 'Poppins',
                                         fontWeight: FontWeight.w400,
                                         color: Color(0xFF0D0C10),
-                                        fontSize: 16,
+                                        fontSize: 16
                                       ),
                                     ),
                                   ),
@@ -624,16 +670,22 @@ class _QuickLinksState extends State<QuickLinks> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Image(image: AssetImage("assets/tone.png"), width: 24, height: 24),
+                              Image(
+                                image: AssetImage("assets/tone.png"),
+                                width: 24,
+                                height: 24,
+                              ),
                               const SizedBox(width: 3),
                               Material(
                                 color: Colors.transparent,
                                 child: InkWell(
-                                  onTap: pickLoudAlert,
+                                  onTap:() => {
+                                    pickLoudAlert()
+                                  },
                                   child: Container(
                                     width: 183.97,
                                     height: 30,
-                                    decoration: const BoxDecoration(
+                                    decoration: BoxDecoration(
                                       color: Colors.transparent,
                                       border: Border(
                                         left: BorderSide(color: Colors.white, width: 1.0),
@@ -645,7 +697,7 @@ class _QuickLinksState extends State<QuickLinks> {
                                       child: Text(
                                         loudAlertName,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontFamily: "Poppins",
                                           fontWeight: FontWeight.w300,
                                           fontSize: 16,
@@ -653,129 +705,141 @@ class _QuickLinksState extends State<QuickLinks> {
                                         ),
                                       ),
                                     ),
-                                  ),
+                                  )
+
                                 ),
                               )
                             ],
                           )
                         ],
                       ),
+                      
                     )
                   ],
                 ),
               ),
-            ),
+            ) 
           ),
         ),
       ],
     );
   }
 
-  /// Builds the "Total Hours Of Tasks" section using SQLite data.
   Widget buildHourTasks() {
-    // Filter tasks according to the same rules you used with Hive
-    final filteredTasks = _allTasks.where((task) {
-      return filteredList(task.date, task.weekDays, task.important);
-    }).toList();
-
-    // Buckets by tag
-    Duration upskill = Duration.zero;
-    Duration work = Duration.zero;
-    Duration personal = Duration.zero;
-    Duration health = Duration.zero;
-    Duration exercise = Duration.zero;
-    Duration social = Duration.zero;
-    Duration spiritual = Duration.zero;
-    Duration finance = Duration.zero;
-    Duration others = Duration.zero;
-    Duration totalDuration = Duration.zero;
-
-    for (final task in filteredTasks) {
-      // fromTime/toTime stored as "HH:mm"
-      final fromTime = DateTime.parse("2025-01-01 ${task.fromTime}:00");
-      final toTime = DateTime.parse("2025-01-01 ${task.toTime}:00");
-      final diff = toTime.difference(fromTime);
-      totalDuration += diff;
-
-      switch (task.tags) {
-        case "Upskill":
-          upskill += diff;
-          break;
-        case "Work":
-          work += diff;
-          break;
-        case "Personal":
-          personal += diff;
-          break;
-        case "Health":
-          health += diff;
-          break;
-        case "Exercise":
-          exercise += diff;
-          break;
-        case "Social":
-          social += diff;
-          break;
-        case "Spiritual":
-          spiritual += diff;
-          break;
-        case "Finance":
-          finance += diff;
-          break;
-        default:
-          others += diff;
+    final tasksBox = HiveService.getTasksBox();
+    final tasks = tasksBox.values.toList();
+    final filteredTasks = <Task>[];
+    for (var task in tasks) {
+      if (filteredList(task.date, task.weekDays, task.important)) {
+        filteredTasks.add(task);
       }
     }
-
+    // ignore: non_constant_identifier_names
+    Duration Upskill = Duration.zero;
+    Duration Work = Duration.zero;
+    Duration Personal = Duration.zero;
+    Duration Health = Duration.zero;
+    Duration Exercise = Duration.zero;
+    Duration Social = Duration.zero;
+    Duration Spiritual = Duration.zero;
+    Duration Finance = Duration.zero;
+    Duration Others = Duration.zero;
+    Duration totalDuration = Duration.zero;
+    for (var task in filteredTasks) {
+        String fromTimeStr = task.fromTime; // 2:30 PM
+        String toTimeStr = task.toTime;   // 6:15 PM
+        // Convert to DateTime objects (same date, only time matters)
+        DateTime fromTime = DateTime.parse("2025-01-01 $fromTimeStr:00");
+        DateTime toTime = DateTime.parse("2025-01-01 $toTimeStr:00");
+        // Calculate the difference
+        Duration difference = toTime.difference(fromTime);
+        totalDuration += difference;
+        switch(task.tags) {
+          case "Upskill": 
+            Upskill += difference;
+            break;
+          case "Work":
+            Work += difference;
+            break;
+          case "Personal":
+            Personal += difference;
+            break;
+          case "Health":
+            Health += difference;
+            break;
+          case "Exercise":
+            Exercise += difference;
+            break;
+          case "Social":
+            Social += difference;
+            break;
+          case "Spiritual":
+            Spiritual += difference;
+            break;
+          case "Finance":
+            Finance += difference;
+            break;
+          default:
+            Others += difference;
+        }
+    }
     double hours = totalDuration.inHours + (totalDuration.inMinutes.remainder(60) / 100);
     String total = hours % 1 == 0 ? hours.toInt().toString() : hours.toStringAsFixed(2);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (upskill != Duration.zero) buildTagHour("Upskill", upskill),
-        if (work != Duration.zero) buildTagHour("Work", work),
-        if (personal != Duration.zero) buildTagHour("Personal", personal),
-        if (health != Duration.zero) buildTagHour("Health", health),
-        if (exercise != Duration.zero) buildTagHour("Exercise", exercise),
-        if (social != Duration.zero) buildTagHour("Social", social),
-        if (spiritual != Duration.zero) buildTagHour("Spiritual", spiritual),
-        if (finance != Duration.zero) buildTagHour("Finance", finance),
-        if (others != Duration.zero) buildTagHour("Others", others),
-        if (totalDuration != Duration.zero)
-          Row(
-            children: [
-              const Text(
-                "Total",
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontWeight: FontWeight.w400,
-                  fontSize: 18,
-                  color: Color(0xFFFED289),
-                ),
+        if(Upskill != Duration.zero) 
+          buildTagHour("Upskill", Upskill),
+        if(Work != Duration.zero) 
+          buildTagHour("Work", Work),
+        if(Personal != Duration.zero) 
+          buildTagHour("Personal", Personal),
+        if(Health != Duration.zero) 
+          buildTagHour("Health", Health),
+        if(Exercise != Duration.zero) 
+          buildTagHour("Exercise", Exercise),
+        if(Social != Duration.zero) 
+          buildTagHour("Social", Social),
+        if(Spiritual != Duration.zero) 
+          buildTagHour("Spiritual", Spiritual),
+        if(Finance != Duration.zero) 
+          buildTagHour("Finance", Finance),
+        if(Others != Duration.zero) 
+          buildTagHour("Others", Others),
+        if(totalDuration != Duration.zero) 
+        Row(
+          children: [
+            Text(
+              "Total",
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w400,
+                fontSize: 18,
+                color: Color(0xFFFED289),
               ),
-              const Expanded(child: SizedBox(height: 27)),
-              Text(
-                total,
-                style: const TextStyle(
-                  fontFamily: 'Quantico',
-                  fontWeight: FontWeight.w400,
-                  fontSize: 18,
-                  color: Color(0xFFFED289),
-                ),
+            ),
+            Expanded(child: SizedBox(height: 27)),
+            Text(
+              total,
+              style: TextStyle(
+                fontFamily: 'Quantico',
+                fontWeight: FontWeight.w400,
+                fontSize: 18,
+                color: Color(0xFFFED289),
               ),
-              const SizedBox(width: 10),
-              const Text(
-                "Hours",
-                style: TextStyle(
-                  fontFamily: 'Quantico',
-                  fontWeight: FontWeight.w300,
-                  fontSize: 18,
-                  color: Color(0xFFFED289),
-                ),
+            ),
+            SizedBox(width: 10),
+            Text(
+              "Hours",
+              style: TextStyle(
+                fontFamily: 'Quantico',
+                fontWeight: FontWeight.w300,
+                fontSize: 18,
+                color: Color(0xFFFED289),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -789,25 +853,25 @@ class _QuickLinksState extends State<QuickLinks> {
           children: [
             Text(
               tag,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Poppins',
                 fontWeight: FontWeight.w400,
                 fontSize: 18,
                 color: Color(0xFFEBFAF9),
               ),
             ),
-            const Expanded(child: SizedBox(height: 27)),
+            Expanded(child: SizedBox(height: 27)),
             Text(
               result,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Quantico',
                 fontWeight: FontWeight.w400,
                 fontSize: 18,
                 color: Color(0xFFEBFAF9),
               ),
             ),
-            const SizedBox(width: 10),
-            const Text(
+            SizedBox(width: 10),
+            Text(
               "Hours",
               style: TextStyle(
                 fontFamily: 'Quantico',
@@ -818,8 +882,9 @@ class _QuickLinksState extends State<QuickLinks> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
       ],
     );
   }
+
 }

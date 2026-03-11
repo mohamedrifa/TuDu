@@ -16,11 +16,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final appDocumentDir = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocumentDir.path);
-  if (!Hive.isAdapterRegistered(SettingsAdapter().typeId)) {
-    Hive.registerAdapter(SettingsAdapter());
-  }
-  await Hive.openBox<AppSettings>('settings');
-  await AppDatabase.instance.database;
+  await HiveService.init();
   await AndroidAlarmManager.initialize();
   await MediumNotification().initNotification();
   runApp(MyApp());
@@ -91,17 +87,12 @@ class _MyAppState extends State<MyApp> {
 }
 
 class FullScreenPage extends StatelessWidget {
-  const FullScreenPage({super.key});
-
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: [SystemUiOverlay.top],
-    );
-    return const AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent, // No background
         statusBarIconBrightness: Brightness.light,
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.light,
@@ -117,18 +108,4 @@ class FullScreenPage extends StatelessWidget {
       ),
     );
   }
-}
-
-class _BodyWrapper extends StatelessWidget {
-  const _BodyWrapper();
-
-  @override
-  Widget build(BuildContext context) {
-    // removes the top padding so your screen is truly fullscreen
-    return MediaQuery.removeViewPadding(
-      context: context,
-      removeTop: true,
-      child: const NotificationScreen(), // your existing screen
-    );
-  }
-}
+} 

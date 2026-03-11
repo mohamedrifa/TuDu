@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hive_flutter/hive_flutter.dart';              // ✅ still used for AppSettings only
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tudu/models/settings.dart';
 import 'package:tudu/services/task_widget_helper.dart';
 import 'package:tudu/widgets/tip_banner.dart';
 import '../widgets/task_card.dart';
-// import '../models/task.dart';                               // ❌ remove Hive Task
-// import '../database/hive_service.dart';                     // ❌ remove Hive service for tasks
+import '../models/task.dart';
+import '../database/hive_service.dart';
 import 'task_adding_screen.dart';
 import 'package:intl/intl.dart';
 import '../widgets/quickLinks.dart';
@@ -22,14 +22,9 @@ class TaskScreen extends StatefulWidget {
 }
 
 class _TaskScreenState extends State<TaskScreen> {
-  // ===== SQLite repo & in-memory list =====
-  late final TaskRepository _taskRepo;
-  List<Task> _allTasks = [];
-  bool _loading = true;
-
   DateTime now = DateTime.now();
   String addTaskId = DateFormat('yyyyMMddhhmmss').format(DateTime.now());
-  var settingsBox = Hive.box<AppSettings>('settings'); // still Hive for settings
+  var settingsBox = Hive.box<AppSettings>('settings');
   String selectedDate = "Today";
   String showDate = DateFormat('d EEE MMM yyyy').format(DateTime.now());
   bool showTip = false;
@@ -52,8 +47,6 @@ class _TaskScreenState extends State<TaskScreen> {
         },
       ),
     );
-    // Refresh list after returning
-    await _loadTasks();
   }
 
   void changeSelectedDate(String date) {
@@ -107,7 +100,6 @@ void openBatterySettings() {
     });
   }
 
-  // ---------- Filtering helpers (unchanged) ----------
   bool allDaysFalse(List weekDays) {
     for (var day in weekDays) {
       if (day) return false;
@@ -159,20 +151,23 @@ void openBatterySettings() {
   }
 
   void dateChange(String value) {
-    if (value == "Importants") {
+    if(value == "Importants"){
       setState(() {
-        showDate = value;
-        selectedDate = "custom";
-      });
+      showDate = value;
+      selectedDate = "custom";
+    });
     } else {
       DateFormat inputFormat = DateFormat("d MM yyyy");
       DateTime parsedDate = inputFormat.parse(value);
       String formattedDate = DateFormat('d EEE MMM yyyy').format(parsedDate);
+      // Normalize today and tomorrow to ignore time
       DateTime today = DateTime.now();
       DateTime tomorrow = today.add(Duration(days: 1));
-      bool isSameDate(DateTime a, DateTime b) =>
-          a.year == b.year && a.month == b.month && a.day == b.day;
-
+      
+      bool isSameDate(DateTime a, DateTime b) {
+        return a.year == b.year && a.month == b.month && a.day == b.day;
+      }
+      
       if (isSameDate(parsedDate, today)) {
         setState(() {
           selectedDate = "Today";
@@ -188,43 +183,42 @@ void openBatterySettings() {
           selectedDate = "custom";
           showDate = formattedDate;
         });
-      }
-    }
+      }     
+    }    
   }
 
-  void GestDetect() {
+  void GestDetect () {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.top]);
   }
 
-  // ---------- Build ----------
   @override
   Widget build(BuildContext context) {
-    // NOTE: No HiveService / listenable here anymore.
-    // We render from _allTasks (SQLite) and refresh after edits/additions.
+    final tasksBox = HiveService.getTasksBox();
     return WillPopScope(
       onWillPop: () async {
+        // Exit the app
         SystemNavigator.pop();
-        return false;
+        return false; // Prevent default back navigation
       },
       child: GestureDetector(
         onTap: () => GestDetect(),
         child: Scaffold(
-          backgroundColor: const Color(0xFF1E1E1E),
-          body: Stack(
-            children: [
-              Positioned(
-                top: 47.48,
-                right: 0,
-                child: GestureDetector(
-                  onTap: () {
-                    quickLinkWidget();
-                  },
-                  child: const Image(
-                    width: 66.8,
-                    image: AssetImage('assets/pageMark.png'),
-                  ),
+        backgroundColor: const Color(0xFF1E1E1E),
+        body: Stack(
+          children: [
+            Positioned(
+              top: 47.48,
+              right: 0,
+              child: GestureDetector(
+                onTap: () {
+                  quickLinkWidget();
+                },
+                child: Image(
+                  width: 66.8,
+                  image: AssetImage('assets/pageMark.png'),
                 ),
               ),
+            ),
 
             Column(
               children: [
@@ -565,86 +559,88 @@ void openBatterySettings() {
     );
   }
 
-  void showBatteryDialog(BuildContext context) {
-    final settingsBox = Hive.box<AppSettings>('settings');
-    final currentSettings = settingsBox.get('userSettings');
+ void showBatteryDialog(BuildContext context) {
+  final settingsBox = Hive.box<AppSettings>('settings'); // Access here once
+  final currentSettings = settingsBox.get('userSettings');
 
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        bool doNotShowAgain = false;
+  showDialog(
+  context: context,
+  builder: (ctx) {
+    bool doNotShowAgain = false;
 
-        return StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            backgroundColor: Colors.grey[900],
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            title: const Text(
-              'Battery Optimization',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+    return StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        title: const Text(
+          'Battery Optimization',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'To ensure tasks and reminders work correctly in the background, please set battery usage to "Unrestricted" in the next screen.',
+              style: TextStyle(color: Colors.white70),
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: 16),
+            Row(
               children: [
-                const Text(
-                  'To ensure tasks and reminders work correctly in the background, please set battery usage to "Unrestricted" in the next screen.',
-                  style: TextStyle(color: Colors.white70),
+                Checkbox(
+                  value: doNotShowAgain,
+                  onChanged: (value) {
+                    setState(() {
+                      doNotShowAgain = value ?? false;
+                    });
+                  },
+                  checkColor: Colors.white,
+                  activeColor: Colors.blueAccent,
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Checkbox(
-                      value: doNotShowAgain,
-                      onChanged: (value) {
-                        setState(() {
-                          doNotShowAgain = value ?? false;
-                        });
-                      },
-                      checkColor: Colors.white,
-                      activeColor: Colors.blueAccent,
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'Don\'t show this again',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                  ],
+                const Expanded(
+                  child: Text(
+                    'Don\'t show this again',
+                    style: TextStyle(color: Colors.white70),
+                  ),
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.grey),
-                ),
-                onPressed: () {
-                  final updatedSettings = AppSettings(
-                    mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
-                    loudAlertTone: currentSettings?.loudAlertTone ?? '',
-                    batteryUnrestricted: doNotShowAgain,
-                  );
-                  settingsBox.put('userSettings', updatedSettings);
-                  Navigator.of(ctx).pop();
-                },
-              ),
-              TextButton(
-                child: const Text(
-                  'Open Settings',
-                  style: TextStyle(color: Colors.blueAccent),
-                ),
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  openBatterySettings();
-                },
-              ),
-            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey),
+            ),
+            onPressed: () {
+              final updatedSettings = AppSettings(
+                mediumAlertTone: currentSettings?.mediumAlertTone ?? '',
+                loudAlertTone: currentSettings?.loudAlertTone ?? '',
+                batteryUnrestricted: doNotShowAgain,
+              );
+              settingsBox.put('userSettings', updatedSettings);
+              Navigator.of(ctx).pop();
+            },
           ),
-        );
-      },
+          TextButton(
+            child: const Text(
+              'Open Settings',
+              style: TextStyle(color: Colors.blueAccent),
+            ),
+            onPressed: () {
+              // You can also store doNotShowAgain here if needed
+              Navigator.of(ctx).pop();
+              openBatterySettings();
+            },
+          ),
+        ],
+      ),
     );
-  }
+  },
+);
+}
+
 }
